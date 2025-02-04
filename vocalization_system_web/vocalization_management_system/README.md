@@ -123,7 +123,3 @@ Run the following command:
 ```sh
 python manage.py collectstatic --noinput
 ```
-
-
----
-This **README.md** provides clear instructions for setting up and running the project locally. 🚀 Let me know if you need modifications!
