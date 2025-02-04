@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-center text-primary">Admin Dashboard</h2>
+
+    <div class="row mt-4">
+        <!-- Upload Audio -->
+        <div class="col-md-4">
+            <div class="card shadow">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Upload New Audio</h5>
+                    <p class="card-text">Manage audio files and upload new recordings.</p>
+                    <a href="{% url 'upload_audio' %}" class="btn btn-primary">Go to Upload</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manage Staff -->
+        <div class="col-md-4">
+            <div class="card shadow">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Manage Staff</h5>
+                    <p class="card-text">View, edit, and manage staff access.</p>
+                    <a href="{% url 'manage_staff' %}" class="btn btn-success">Manage Staff</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- View Analysis -->
+        <div class="col-md-4">
+            <div class="card shadow">
+                <div class="card-body text-center">
+                    <h5 class="card-title">View Audio Analysis</h5>
+                    <p class="card-text">Review analyzed audio spectrograms and waveforms.</p>
+                    <a href="{% url 'view_audio_analysis' %}" class="btn btn-info">View Analysis</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

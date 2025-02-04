@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-center text-info">Staff Dashboard</h2>
+
+    <div class="row mt-4">
+        <!-- View Audio Analysis -->
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-body text-center">
+                    <h5 class="card-title">View Audio Analysis</h5>
+                    <p class="card-text">Analyze saw calls using waveforms and spectrograms.</p>
+                    <a href="{% url 'view_audio_analysis' %}" class="btn btn-primary">Go to Analysis</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Change Password -->
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Change Password</h5>
+                    <p class="card-text">Update your login credentials.</p>
+                    <a href="{% url 'change_password' %}" class="btn btn-secondary">Change Password</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
