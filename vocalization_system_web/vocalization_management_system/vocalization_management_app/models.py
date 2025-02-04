@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.db import models
+from django.utils.timezone import now
 
 
 class CustomUser(AbstractUser):
@@ -32,3 +33,18 @@ class StaffProfile(models.Model):
 
     def __str__(self):
         return self.user.username
+    
+
+class AudioFile(models.Model):
+    ANIMAL_CHOICES = [
+        ('amur_leopard', 'Amur Leopard'),
+        ('amur_tiger', 'Amur Tiger'),
+    ]
+
+    file = models.FileField(upload_to='audio_files/')
+    animal_type = models.CharField(max_length=20, choices=ANIMAL_CHOICES)
+    upload_date = models.DateTimeField(default=now)
+    location = models.CharField(max_length=255, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.animal_type} - {self.file.name}"

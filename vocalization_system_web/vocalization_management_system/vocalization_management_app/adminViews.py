@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.files.storage import FileSystemStorage
 from .models import CustomUser, AdminProfile
+from .forms import UserRegistrationForm, AudioUploadForm
 
 @login_required
 def create_user(request):
@@ -55,3 +56,23 @@ def manage_staff(request):
 
     staff_users = CustomUser.objects.filter(user_type='2')  # Fetch all staff users
     return render(request, "admin_template/manage_staff.html", {"staff_users": staff_users})
+
+@login_required
+def upload_audio(request):
+    if request.user.user_type != '1':  # Ensure only Admin can access
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect('login')
+
+    if request.method == "POST":
+        form = AudioUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Audio file uploaded successfully!")
+            return redirect('upload_audio')
+        else:
+            messages.error(request, "Error uploading file. Please check the form.")
+    
+    else:
+        form = AudioUploadForm()
+
+    return render(request, "admin_template/upload_audio.html", {"form": form})
