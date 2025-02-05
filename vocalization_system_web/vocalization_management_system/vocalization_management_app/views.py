@@ -35,7 +35,7 @@ def doLogin(request):
             return redirect("login")
         
 def registerPage(request):
-    return render(request, 'register.html')  # Create a register.html template
+    return render(request, 'register.html')  
 
 def doRegister(request):
     if request.method == "POST":
@@ -43,7 +43,7 @@ def doRegister(request):
         email = request.POST.get('email')
         password = request.POST.get('password')
         confirm_password = request.POST.get('confirm_password')
-        user_type = request.POST.get('user_type')  # "1" for Admin, "2" for Staff
+        user_type = request.POST.get('user_type')
 
         # Check if passwords match
         if password != confirm_password:
@@ -55,8 +55,9 @@ def doRegister(request):
             messages.error(request, "Email is already registered.")
             return redirect('register')
 
-        # Create the user
+        # **Set `username` as email to avoid UNIQUE constraint error**
         user = CustomUser.objects.create(
+            username=email,  # ✅ Fix: Set `username` as email
             email=email,
             full_name=full_name,
             password=make_password(password),  # Hash password
@@ -79,3 +80,18 @@ def get_user_details(request):
 def logout_user(request):
     logout(request)
     return redirect('login')
+
+def change_password(request):
+    if request.method == "POST":
+        form = PasswordChangeForm(request.user, request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)  # Keep user logged in after password change
+            messages.success(request, "Your password has been changed successfully!")
+            return redirect('staff_home')  # Redirect to staff home
+        else:
+            messages.error(request, "Please correct the errors below.")
+    else:
+        form = PasswordChangeForm(request.user)
+    
+    return render(request, "staff_template/change_password.html", {'form': form})

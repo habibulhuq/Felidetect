@@ -17,4 +17,6 @@ urlpatterns = [
     # Staff URLs
     path('staff_home/', staffViews.staff_home, name="staff_home"),
     path('view_audio_analysis/', staffViews.view_audio_analysis, name="view_audio_analysis"),
+
+    path('change_password/', views.change_password, name="change_password"),
 ]
