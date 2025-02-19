@@ -5,6 +5,8 @@ from django.http import HttpResponse
 from django.contrib import messages
 from .EmailBackEnd import EmailBackEnd
 from .models import CustomUser
+from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth import update_session_auth_hash
 
 def home(request):
     return redirect('login')
@@ -57,10 +59,10 @@ def doRegister(request):
 
         # **Set `username` as email to avoid UNIQUE constraint error**
         user = CustomUser.objects.create(
-            username=email,  # ✅ Fix: Set `username` as email
+            username=email,
             email=email,
             full_name=full_name,
-            password=make_password(password),  # Hash password
+            password=make_password(password),
             user_type=user_type
         )
         user.save()

@@ -8,19 +8,13 @@
         {% csrf_token %}
         <div class="form-group">
             <label for="file">Select Audio File (.wav only)</label>
-            {{ form.file }}
+            {{ form.audio_file }}
         </div>
 
         <div class="form-group">
             <label for="animal_type">Select Animal Type</label>
             {{ form.animal_type }}
         </div>
-
-        <div class="form-group">
-            <label for="location">Recording Location (Optional)</label>
-            {{ form.location }}
-        </div>
-
         <button type="submit" class="btn btn-success">Upload</button>
     </form>
 
@@ -31,5 +25,18 @@
         {% endfor %}
     </div>
     {% endif %}
+
+    <!-- Display Spectrograms -->
+    <h3 class="mt-5 text-center">Processed Spectrograms</h3>
+    <div class="row">
+        {% for spectrogram in spectrograms %}
+        <div class="col-md-4 text-center">
+            <h5>{{ spectrogram.audio_file.audio_file_name }}</h5>
+            <img src="{{ spectrogram.image_path.url }}" class="img-fluid" alt="Spectrogram">
+        </div>
+        {% empty %}
+        <p class="text-center">No spectrograms available yet.</p>
+        {% endfor %}
+    </div>
 </div>
 {% endblock %}

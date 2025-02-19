@@ -1,7 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from .models import CustomUser
-from .models import AudioFile
+from .models import CustomUser, OriginalAudioFile
 
 class UserRegistrationForm(UserCreationForm):
     email = forms.EmailField(required=True)
@@ -20,5 +19,5 @@ class UserRegistrationForm(UserCreationForm):
 
 class AudioUploadForm(forms.ModelForm):
     class Meta:
-        model = AudioFile
-        fields = ['file', 'animal_type', 'location']
+        model = OriginalAudioFile
+        fields = ['audio_file', 'animal_type', 'zoo']
