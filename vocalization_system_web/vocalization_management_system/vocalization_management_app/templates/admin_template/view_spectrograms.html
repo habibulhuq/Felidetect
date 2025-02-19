@@ -1,0 +1,206 @@
+{% extends 'admin_template/base_template.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    {% if original_file %}
+        <h2>Extracted Clips - {{ original_file.audio_file_name }}</h2>
+        
+        <!-- Processing Status -->
+        {% if processing_status %}
+            <div class="alert {% if processing_status.status == 'Processed' %}alert-success{% elif processing_status.status == 'Failed' %}alert-danger{% else %}alert-info{% endif %}">
+                Status: {{ processing_status.status }}
+            </div>
+        {% endif %}
+        
+        <!-- File Info -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4>File Information</h4>
+            </div>
+            <div class="card-body">
+                <p><strong>Animal Type:</strong> {{ original_file.get_animal_type_display }}</p>
+                <p><strong>Recording Date:</strong> {{ original_file.recording_date }}</p>
+                <p><strong>Upload Date:</strong> {{ original_file.upload_date }}</p>
+                <p><strong>File Size:</strong> {{ original_file.file_size_mb|floatformat:2 }} MB</p>
+            </div>
+        </div>
+        
+        <!-- Full Audio Spectrogram -->
+        {% if full_spectrogram %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4>Full Audio Spectrogram</h4>
+                </div>
+                <div class="card-body">
+                    <img src="{{ full_spectrogram.image_path.url }}" class="img-fluid" alt="Full Audio Spectrogram">
+                </div>
+            </div>
+        {% endif %}
+        
+        <!-- Extracted Clips -->
+        <h3>Extracted Saw Calls</h3>
+        <div class="row">
+            {% for clip in clips_data %}
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5>Clip {{ forloop.counter }} ({{ clip.start_time|floatformat:2 }}s - {{ clip.end_time|floatformat:2 }}s)</h5>
+                            <button class="btn btn-primary btn-sm" onclick="playAudio('{{ clip.audio_clip.detected_noise_file_path }}')">
+                                Play Audio
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <img src="{{ clip.spectrogram.image_path.url }}" class="img-fluid" alt="Clip Spectrogram">
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label>Verification Status:</label>
+                                        <select class="form-control verification-status" data-clip-id="{{ clip.audio_clip.detected_noise_file_id }}">
+                                            <option value="unverified">Unverified</option>
+                                            <option value="verified">Verified Saw Call</option>
+                                            <option value="false_positive">False Positive</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group mt-3">
+                                        <label>Notes:</label>
+                                        <textarea class="form-control" rows="3"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        No saw calls detected in this audio file.
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        
+        <div class="mt-4">
+            <a href="{% url 'admin_view_spectrograms' %}" class="btn btn-primary">Back to File List</a>
+        </div>
+        
+    {% else %}
+        <h2>Audio Files</h2>
+        
+        <!-- Search and Filter Form -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="get" class="mb-4">
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <div class="input-group">
+                                <input type="text" name="search" class="form-control" placeholder="Search by file name..." value="{{ search_query }}">
+                                <div class="input-group-append">
+                                    <button type="submit" class="btn btn-primary">Search</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="status">Processing Status:</label>
+                                <select name="status" id="status" class="form-control">
+                                    <option value="">All</option>
+                                    <option value="Processed" {% if status_filter == 'Processed' %}selected{% endif %}>Processed</option>
+                                    <option value="Processing" {% if status_filter == 'Processing' %}selected{% endif %}>Processing</option>
+                                    <option value="Failed" {% if status_filter == 'Failed' %}selected{% endif %}>Failed</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="animal_type">Animal Type:</label>
+                                <select name="animal_type" id="animal_type" class="form-control">
+                                    <option value="">All</option>
+                                    <option value="amur_leopard" {% if animal_type_filter == 'amur_leopard' %}selected{% endif %}>Amur Leopard</option>
+                                    <option value="amur_tiger" {% if animal_type_filter == 'amur_tiger' %}selected{% endif %}>Amur Tiger</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group" style="margin-top: 32px;">
+                                <button type="submit" class="btn btn-primary">Apply Filters</button>
+                                <a href="{% url 'admin_view_spectrograms' %}" class="btn btn-secondary">Clear</a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- File List -->
+        <div class="list-group">
+            {% for file in audio_files %}
+                <a href="{% url 'admin_view_spectrograms' file.file_id %}" class="list-group-item list-group-item-action">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1">{{ file.audio_file_name }}</h5>
+                        <small>{{ file.upload_date|date:"Y-m-d H:i" }}</small>
+                    </div>
+                    <p class="mb-1">
+                        <span class="badge {% if file.database_entry.first.status == 'Processed' %}badge-success{% elif file.database_entry.first.status == 'Failed' %}badge-danger{% else %}badge-info{% endif %}">
+                            {{ file.database_entry.first.status }}
+                        </span>
+                        {{ file.get_animal_type_display }}
+                    </p>
+                    <small>
+                        File Size: {{ file.file_size_mb|floatformat:2 }} MB |
+                        Detected Calls: {{ file.detected_noises.count }}
+                    </small>
+                </a>
+            {% empty %}
+                <div class="alert alert-info">
+                    No audio files found matching your search criteria.
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
+
+<!-- Audio Player Modal -->
+<div class="modal fade" id="audioPlayerModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Audio Player</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <audio id="audioPlayer" controls class="w-100">
+                    Your browser does not support the audio element.
+                </audio>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+function playAudio(audioPath) {
+    const player = document.getElementById('audioPlayer');
+    player.src = '/media/' + audioPath;
+    player.load();
+    $('#audioPlayerModal').modal('show');
+    player.play();
+}
+
+// Handle verification status changes
+document.querySelectorAll('.verification-status').forEach(select => {
+    select.addEventListener('change', function() {
+        const clipId = this.dataset.clipId;
+        const status = this.value;
+        // Here you can add AJAX call to update verification status
+        console.log(`Clip ${clipId} status changed to ${status}`);
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}

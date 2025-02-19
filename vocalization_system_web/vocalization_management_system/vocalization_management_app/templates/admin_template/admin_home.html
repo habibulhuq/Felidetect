@@ -1,41 +1,48 @@
 {% extends 'base.html' %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-    <h2 class="text-center text-primary">Admin Dashboard</h2>
+<div class="container">
+    <h2 class="mb-4">
+        <i class="fas fa-tachometer-alt me-2"></i>Admin Dashboard
+    </h2>
 
-    <div class="row mt-4">
-        <!-- Upload Audio -->
+    <!-- Quick Actions -->
+    <div class="row mb-4">
         <div class="col-md-4">
-            <div class="card shadow">
-                <div class="card-body text-center">
-                    <h5 class="card-title">Upload New Audio</h5>
-                    <p class="card-text">Manage audio files and upload new recordings.</p>
-                    <a href="{% url 'upload_audio' %}" class="btn btn-primary">Go to Upload</a>
+            <a href="{% url 'upload_audio' %}" class="card text-decoration-none">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">
+                        <i class="fas fa-upload me-2"></i>Upload Audio
+                    </h5>
+                    <p class="card-text text-muted">Upload new audio files for processing</p>
                 </div>
-            </div>
+            </a>
         </div>
-
-        <!-- Manage Staff -->
         <div class="col-md-4">
-            <div class="card shadow">
-                <div class="card-body text-center">
-                    <h5 class="card-title">Manage Staff</h5>
-                    <p class="card-text">View, edit, and manage staff access.</p>
-                    <a href="{% url 'manage_staff' %}" class="btn btn-success">Manage Staff</a>
+            <a href="{% url 'view_spectrograms' %}" class="card text-decoration-none">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">
+                        <i class="fas fa-wave-square me-2"></i>View Spectrograms
+                    </h5>
+                    <p class="card-text text-muted">Analyze processed audio files</p>
                 </div>
-            </div>
+            </a>
         </div>
-
-        <!-- View Analysis -->
         <div class="col-md-4">
-            <div class="card shadow">
-                <div class="card-body text-center">
-                    <h5 class="card-title">View Audio Analysis</h5>
-                    <p class="card-text">Review analyzed audio spectrograms and waveforms.</p>
-                    <a href="{% url 'view_audio_analysis' %}" class="btn btn-info">View Analysis</a>
+            <a href="{% url 'manage_staff' %}" class="card text-decoration-none">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">
+                        <i class="fas fa-users me-2"></i>Manage Staff
+                    </h5>
+                    <p class="card-text text-muted">Add or manage staff accounts</p>
                 </div>
-            </div>
+            </a>
         </div>
     </div>
+
+    <!-- Include Live Logging Component -->
+    {% include 'components/live_logging.html' %}
 </div>
 {% endblock %}

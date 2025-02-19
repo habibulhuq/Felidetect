@@ -5,7 +5,7 @@ import librosa.display
 import matplotlib.pyplot as plt
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-from .models import ProcessedAudioFile, DetectedNoiseAudioFile, Spectrogram, Waveform, Database
+from .models import ProcessedAudioFile, DetectedNoiseAudioFile, Spectrogram, Waveform, Database, ProcessingLog
 from scipy.signal import stft
 from scipy.io import wavfile as wav
 
@@ -18,52 +18,127 @@ def process_audio(file_path, original_audio):
     - Generate spectrograms and waveforms
     - Update database status
     """
-    
-    # Load audio file
-    y, sr = librosa.load(file_path, sr=None)
-
-    # Perform audio processing (Replace with actual saw call detection algorithm)
-    saw_call_segments = detect_saw_calls(y, sr)
-
-    # Save extracted clips and create database entries
-    for i, (start, end) in enumerate(saw_call_segments):
-        clip_filename = f"{original_audio.audio_file_name}_clip_{i}.wav"
-        clip_path = f'processed_audio/{clip_filename}'
-        
-        # Extract and save the clip
-        librosa.output.write_wav(clip_path, y[int(start * sr):int(end * sr)], sr)
-        
-        # Save clip to ProcessedAudioFile model
-        processed_clip = ProcessedAudioFile.objects.create(
-            audio_file_name=clip_filename,
-            original_file=original_audio,
-            recording_date=original_audio.recording_date,
-            file_size_mb=os.path.getsize(clip_path) / (1024 * 1024)
+    try:
+        # Load audio file
+        ProcessingLog.objects.create(
+            audio_file=original_audio,
+            message=f"Starting processing of {original_audio.audio_file_name}",
+            level='INFO'
         )
         
-        # Save clip to DetectedNoiseAudioFile model
-        DetectedNoiseAudioFile.objects.create(
-            original_file=original_audio,
-            detected_noise_file_path=clip_path,
-            start_time=start,
-            end_time=end,
-            saw_count=len(saw_call_segments),
-            saw_call_count=len(saw_call_segments),
-            file_size_mb=os.path.getsize(clip_path) / (1024 * 1024)
+        y, sr = librosa.load(file_path, sr=None)
+        
+        # Create processing status entry
+        db_entry = Database.objects.create(
+            audio_file=original_audio,
+            status="Processing"
         )
 
-    # Generate and save spectrograms
-    spectrogram_path = generate_spectrogram(y, sr, original_audio.audio_file_name)
-    Spectrogram.objects.create(audio_file=original_audio, image_path=spectrogram_path)
+        # Perform audio processing
+        ProcessingLog.objects.create(
+            audio_file=original_audio,
+            message="Detecting saw calls...",
+            level='INFO'
+        )
+        
+        saw_call_segments = detect_saw_calls(y, sr)
+        
+        ProcessingLog.objects.create(
+            audio_file=original_audio,
+            message=f"Found {len(saw_call_segments)} potential saw calls",
+            level='INFO'
+        )
 
-    # Generate and save waveforms
-    waveform_path = generate_waveform(y, sr, original_audio.audio_file_name)
-    Waveform.objects.create(audio_file=original_audio, image_path=waveform_path)
+        # Create directory for processed files if it doesn't exist
+        processed_dir = 'media/processed_audio'
+        os.makedirs(processed_dir, exist_ok=True)
 
-    # Update database status
-    Database.objects.create(audio_file=original_audio, status="Processed")
+        # Save extracted clips and create database entries
+        for i, (start, end) in enumerate(saw_call_segments):
+            ProcessingLog.objects.create(
+                audio_file=original_audio,
+                message=f"Processing clip {i+1}/{len(saw_call_segments)} ({start:.2f}s - {end:.2f}s)",
+                level='INFO'
+            )
+            
+            clip_filename = f"{original_audio.audio_file_name}_clip_{i}.wav"
+            clip_path = os.path.join(processed_dir, clip_filename)
+            
+            # Extract and save the clip
+            clip_data = y[int(start * sr):int(end * sr)]
+            wav.write(clip_path, sr, clip_data)
+            
+            # Generate clip spectrogram
+            clip_spectrogram_path = generate_spectrogram(clip_data, sr, f"{clip_filename}_spec")
+            
+            # Save clip to ProcessedAudioFile model
+            processed_clip = ProcessedAudioFile.objects.create(
+                audio_file_name=clip_filename,
+                original_file=original_audio,
+                recording_date=original_audio.recording_date,
+                file_size_mb=os.path.getsize(clip_path) / (1024 * 1024)
+            )
+            
+            # Save clip to DetectedNoiseAudioFile model
+            DetectedNoiseAudioFile.objects.create(
+                original_file=original_audio,
+                detected_noise_file_path=clip_path,
+                start_time=start,
+                end_time=end,
+                saw_count=len(saw_call_segments),
+                saw_call_count=len(saw_call_segments),
+                file_size_mb=os.path.getsize(clip_path) / (1024 * 1024)
+            )
+            
+            # Create spectrogram for the clip
+            Spectrogram.objects.create(
+                audio_file=original_audio,
+                image_path=clip_spectrogram_path,
+                clip_start_time=start,
+                clip_end_time=end
+            )
 
-    print(f"Processing completed for {file_path}")
+        # Generate and save full audio spectrograms and waveforms
+        ProcessingLog.objects.create(
+            audio_file=original_audio,
+            message="Generating full audio spectrogram and waveform...",
+            level='INFO'
+        )
+        
+        spectrogram_path = generate_spectrogram(y, sr, original_audio.audio_file_name)
+        Spectrogram.objects.create(
+            audio_file=original_audio,
+            image_path=spectrogram_path,
+            is_full_audio=True
+        )
+
+        waveform_path = generate_waveform(y, sr, original_audio.audio_file_name)
+        Waveform.objects.create(audio_file=original_audio, image_path=waveform_path)
+
+        # Update database status to completed
+        db_entry.status = "Processed"
+        db_entry.save()
+        
+        ProcessingLog.objects.create(
+            audio_file=original_audio,
+            message=f"Processing completed successfully for {original_audio.audio_file_name}",
+            level='SUCCESS'
+        )
+
+        return True
+
+    except Exception as e:
+        error_message = f"Error processing {original_audio.audio_file_name}: {str(e)}"
+        ProcessingLog.objects.create(
+            audio_file=original_audio,
+            message=error_message,
+            level='ERROR'
+        )
+        
+        if 'db_entry' in locals():
+            db_entry.status = "Failed"
+            db_entry.save()
+        return False
 
 def detect_saw_calls(sample_rate, audio_data):
     """
@@ -193,17 +268,22 @@ def generate_spectrogram(y, sr, filename):
     """
     Generate a spectrogram from the audio signal.
     """
-    plt.figure(figsize=(10, 4))
-    D = librosa.amplitude_to_db(np.abs(librosa.stft(y)), ref=np.max)
-    librosa.display.specshow(D, sr=sr, x_axis='time', y_axis='log')
-    plt.colorbar(format='%+2.0f dB')
-    plt.title('Spectrogram')
+    plt.figure(figsize=(12, 8))
     
-    spectrogram_path = f'spectrograms/{filename}.png'
-    plt.savefig(spectrogram_path)
+    # Create spectrogram using librosa
+    D = librosa.amplitude_to_db(np.abs(librosa.stft(y)), ref=np.max)
+    librosa.display.specshow(D, y_axis='log', x_axis='time', sr=sr)
+    
+    plt.colorbar(format='%+2.0f dB')
+    plt.title(f'Spectrogram - {filename}')
+    
+    # Save the spectrogram
+    spec_path = f'media/spectrograms/{filename}_spectrogram.png'
+    os.makedirs('media/spectrograms', exist_ok=True)
+    plt.savefig(spec_path)
     plt.close()
     
-    return spectrogram_path
+    return spec_path
 
 def generate_waveform(y, sr, filename):
     """

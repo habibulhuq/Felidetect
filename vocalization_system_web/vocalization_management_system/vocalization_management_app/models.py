@@ -121,9 +121,14 @@ class Spectrogram(models.Model):
     image_path = models.ImageField(upload_to='spectrograms/')
     generated_by = models.ForeignKey(StaffProfile, on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    is_full_audio = models.BooleanField(default=False)
+    clip_start_time = models.FloatField(null=True, blank=True)
+    clip_end_time = models.FloatField(null=True, blank=True)
 
     def __str__(self):
-        return f"Spectrogram for {self.audio_file.audio_file_name}"
+        if self.is_full_audio:
+            return f"Full Spectrogram - {self.audio_file.audio_file_name}"
+        return f"Clip Spectrogram - {self.audio_file.audio_file_name} ({self.clip_start_time:.2f}s - {self.clip_end_time:.2f}s)"
 
 
 # Waveform Table
@@ -147,6 +152,27 @@ class AudioProcessor(models.Model):
 
     def __str__(self):
         return f"Processed {self.audio_file.audio_file_name}"
+
+
+# Processing Log Model
+class ProcessingLog(models.Model):
+    LOG_LEVELS = (
+        ('INFO', 'Info'),
+        ('WARNING', 'Warning'),
+        ('ERROR', 'Error'),
+        ('SUCCESS', 'Success'),
+    )
+    
+    audio_file = models.ForeignKey(OriginalAudioFile, on_delete=models.CASCADE, related_name='processing_logs')
+    message = models.TextField()
+    level = models.CharField(max_length=10, choices=LOG_LEVELS, default='INFO')
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-timestamp']
+    
+    def __str__(self):
+        return f"{self.get_level_display()} - {self.timestamp}: {self.message[:50]}"
 
 
 # Database Model (Metadata & Processing Status)

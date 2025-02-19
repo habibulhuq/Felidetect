@@ -1,19 +1,14 @@
-from asyncio.log import logger
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from .models import CustomUser, OriginalAudioFile, Database, ProcessingLog, DetectedNoiseAudioFile, Spectrogram
 from django.core.files.storage import FileSystemStorage
-from .models import CustomUser, AdminProfile
-from .forms import UserRegistrationForm, AudioUploadForm
+import os
+from .audio_processing import process_audio
+from django.utils.timezone import now
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.http import JsonResponse
-from .models import OriginalAudioFile, ProcessedAudioFile, Spectrogram, Waveform, DetectedNoiseAudioFile, Database
-from .forms import AudioUploadForm
-from .audio_processing import process_audio
-from django.utils.timezone import now
-from .models import Spectrogram
-import os 
 import logging
 
 @login_required
@@ -37,10 +32,30 @@ def create_user(request):
 
 @login_required
 def admin_home(request):
-    if request.user.user_type != '1':  # Restrict access to admin only
-        messages.error(request, "You do not have permission to access this page.")
-        return redirect('login')
-    return render(request, "admin_template/admin_home.html")
+    # Get processing statistics
+    total_files = OriginalAudioFile.objects.count()
+    processing_files = Database.objects.filter(status='Processing').count()
+    processed_files = Database.objects.filter(status='Processed').count()
+    failed_files = Database.objects.filter(status='Failed').count()
+    
+    # Get recent processing logs
+    recent_logs = ProcessingLog.objects.select_related('audio_file').order_by('-timestamp')[:10]
+    
+    # Get files currently being processed
+    processing_files_details = Database.objects.filter(
+        status='Processing'
+    ).select_related('audio_file').order_by('-audio_file__upload_date')
+    
+    context = {
+        'total_files': total_files,
+        'processing_files': processing_files,
+        'processed_files': processed_files,
+        'failed_files': failed_files,
+        'recent_logs': recent_logs,
+        'processing_files_details': processing_files_details,
+    }
+    
+    return render(request, "admin_template/admin_home.html", context)
 
 
 @login_required
@@ -71,12 +86,12 @@ def upload_audio(request):
                 ContentFile(request.FILES['audio_file'].read())
             )
 
-            logger.info(f"File {audio_file.audio_file_name} saved at {file_path}. Triggering process_audio()...")
+            logging.info(f"File {audio_file.audio_file_name} saved at {file_path}. Triggering process_audio()...")
 
             # Run the processing algorithm
             process_audio(file_path, audio_file)
 
-            logger.info(f"Processing completed for {audio_file.audio_file_name}.")
+            logging.info(f"Processing completed for {audio_file.audio_file_name}.")
 
             messages.success(request, "Audio uploaded successfully and processing started!")
             return redirect('upload_audio')
@@ -89,7 +104,6 @@ def upload_audio(request):
 
 
 
-
 @login_required
 def manage_staff(request):
     if request.user.user_type != '1':  # Restrict access to admin only
@@ -98,6 +112,78 @@ def manage_staff(request):
 
     staff_users = CustomUser.objects.filter(user_type='2')  # Fetch all staff users
     return render(request, "admin_template/manage_staff.html", {"staff_users": staff_users})
+
+def admin_view_spectrograms(request, file_id=None):
+    """
+    Admin view to display spectrograms and extracted clips with search functionality
+    """
+
+    context = {}
+    
+    if file_id:
+        # Get specific file and its clips
+        original_file = get_object_or_404(OriginalAudioFile, file_id=file_id)
+        context['original_file'] = original_file
+        
+        # Get full audio spectrogram
+        full_spectrogram = original_file.spectrograms.filter(is_full_audio=True).first()
+        context['full_spectrogram'] = full_spectrogram
+        
+        # Get all clip spectrograms and detected noises for this file
+        clip_spectrograms = original_file.spectrograms.filter(
+            is_full_audio=False
+        ).order_by('clip_start_time')
+        
+        detected_noises = original_file.detected_noises.all().order_by('start_time')
+        
+        # Combine spectrograms with their audio clips
+        clips_data = []
+        for spec, noise in zip(clip_spectrograms, detected_noises):
+            clips_data.append({
+                'spectrogram': spec,
+                'audio_clip': noise,
+                'start_time': spec.clip_start_time,
+                'end_time': spec.clip_end_time,
+            })
+        
+        context['clips_data'] = clips_data
+        
+        # Get processing status
+        processing_status = original_file.database_entry.first()
+        context['processing_status'] = processing_status
+        
+    else:
+        # Get search query
+        search_query = request.GET.get('search', '').strip()
+        status_filter = request.GET.get('status', '')
+        animal_type_filter = request.GET.get('animal_type', '')
+        
+        # Base query
+        audio_files = OriginalAudioFile.objects.all()
+        
+        # Apply search if provided
+        if search_query:
+            audio_files = audio_files.filter(
+                audio_file_name__icontains=search_query
+            )
+        
+        # Apply filters if provided
+        if status_filter:
+            audio_files = audio_files.filter(database_entry__status=status_filter)
+        if animal_type_filter:
+            audio_files = audio_files.filter(animal_type=animal_type_filter)
+            
+        # Order by upload date
+        audio_files = audio_files.order_by('-upload_date')
+        
+        context.update({
+            'audio_files': audio_files,
+            'search_query': search_query,
+            'status_filter': status_filter,
+            'animal_type_filter': animal_type_filter,
+        })
+    
+    return render(request, 'admin_template/view_spectrograms.html', context)
 
 @login_required
 def upload_audio(request):
