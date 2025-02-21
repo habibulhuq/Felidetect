@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.hashers import make_password
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 from django.contrib import messages
 from .EmailBackEnd import EmailBackEnd
 from .models import CustomUser
@@ -144,84 +144,49 @@ def view_extracted_clips(request, file_id=None):
     
     return render(request, 'staff_template/view_clips.html', context)
 
+@login_required
 def view_spectrograms(request, file_id=None):
     """
     Common view for both admin and staff to visualize spectrograms
     """
-    context = {}
-    
+    user = request.user
     if file_id:
-        # Get specific file and its clips
-        original_file = get_object_or_404(OriginalAudioFile, file_id=file_id)
-        context['original_file'] = original_file
+        audio_file = get_object_or_404(OriginalAudioFile, file_id=file_id)
         
-        # Get full audio spectrogram
-        full_spectrogram = original_file.spectrograms.filter(is_full_audio=True).first()
-        context['full_spectrogram'] = full_spectrogram
+        # Check if user has permission to view this file
+        if not (user.user_type == '1' or  # Admin
+                (user.user_type == '2' and audio_file.uploaded_by.admin.id == user.staff.admin.id)):  # Staff member's own files
+            return HttpResponseForbidden("You don't have permission to view this file.")
         
-        # Get all clip spectrograms and detected noises for this file
-        clip_spectrograms = original_file.spectrograms.filter(
-            is_full_audio=False
-        ).order_by('clip_start_time')
+        # Get processing status
+        processing_status = audio_file.database_entry.first()
         
-        detected_noises = original_file.detected_noises.all().order_by('start_time')
+        # Get spectrograms
+        spectrograms = audio_file.spectrograms.all()
         
-        # Combine spectrograms with their audio clips
-        clips_data = []
-        for spec, noise in zip(clip_spectrograms, detected_noises):
-            clips_data.append({
-                'spectrogram': spec,
-                'audio_clip': noise,
-                'start_time': spec.clip_start_time,
-                'end_time': spec.clip_end_time,
-            })
-        
-        context['clips_data'] = clips_data
-        
-        # Get processing status and logs
-        processing_status = original_file.database_entry.first()
-        context['processing_status'] = processing_status
+        # Get detected noises
+        detected_noises = audio_file.detected_noises.all()
         
         # Get processing logs
-        context['processing_logs'] = ProcessingLog.objects.filter(
-            audio_file=original_file
-        ).order_by('-timestamp')[:10]  # Get last 10 logs
+        processing_logs = audio_file.processing_logs.all().order_by('-timestamp')
         
+        context = {
+            'audio_file': audio_file,
+            'processing_status': processing_status,
+            'spectrograms': spectrograms,
+            'detected_noises': detected_noises,
+            'processing_logs': processing_logs,
+        }
+        
+        return render(request, 'common/view_spectrograms.html', context)
     else:
-        # Get search query
-        search_query = request.GET.get('search', '').strip()
-        status_filter = request.GET.get('status', '')
-        animal_type_filter = request.GET.get('animal_type', '')
-        
-        # Base query
-        audio_files = OriginalAudioFile.objects.all()
-        
-        # Apply search if provided
-        if search_query:
-            audio_files = audio_files.filter(
-                audio_file_name__icontains=search_query
-            )
-        
-        # Apply filters if provided
-        if status_filter:
-            audio_files = audio_files.filter(database_entry__status=status_filter)
-        if animal_type_filter:
-            audio_files = audio_files.filter(animal_type=animal_type_filter)
+        # List view - show all files the user has access to
+        if user.user_type == '1':  # Admin
+            audio_files = OriginalAudioFile.objects.all()
+        else:  # Staff
+            audio_files = OriginalAudioFile.objects.filter(uploaded_by=user.staff.admin)
             
-        # Order by upload date
-        audio_files = audio_files.order_by('-upload_date')
-        
-        # Get recent processing logs
-        context['recent_logs'] = ProcessingLog.objects.all().order_by('-timestamp')[:5]
-        
-        context.update({
+        context = {
             'audio_files': audio_files,
-            'search_query': search_query,
-            'status_filter': status_filter,
-            'animal_type_filter': animal_type_filter,
-        })
-    
-    # Add user type to context for template customization
-    context['is_admin'] = request.user.user_type == '1'
-    
-    return render(request, 'common/view_spectrograms.html', context)
+        }
+        return render(request, 'common/view_spectrograms.html', context)

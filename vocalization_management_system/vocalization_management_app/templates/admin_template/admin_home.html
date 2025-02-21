@@ -10,7 +10,7 @@
 
     <!-- Quick Actions -->
     <div class="row mb-4">
-        <div class="col-md-6">
+        <div class="col-md-4">
             <a href="{% url 'upload_audio' %}" class="card text-decoration-none">
                 <div class="card-body">
                     <h5 class="card-title text-primary">
@@ -20,7 +20,7 @@
                 </div>
             </a>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-4">
             <a href="{% url 'manage_staff' %}" class="card text-decoration-none">
                 <div class="card-body">
                     <h5 class="card-title text-primary">
@@ -29,6 +29,30 @@
                     <p class="card-text text-muted">Add or manage staff accounts</p>
                 </div>
             </a>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">
+                        <i class="fas fa-wave-square me-2"></i>Spectrograms
+                    </h5>
+                    <p class="card-text text-muted">View processed audio files</p>
+                    <div class="mt-2">
+                        {% for file in audio_files %}
+                            {% with status=file.database_entry.first.status %}
+                            {% if status == 'Processed' %}
+                            <a href="{% url 'view_spectrograms' file.file_id %}" class="btn btn-sm btn-outline-primary mb-1 d-block">
+                                <i class="fas fa-wave-square me-1"></i>
+                                {{ file.audio_file_name|truncatechars:20 }}
+                            </a>
+                            {% endif %}
+                            {% endwith %}
+                        {% empty %}
+                            <p class="text-muted small mb-0">No processed files available</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -68,7 +92,7 @@
                             <td>
                                 {% with status=file.database_entry.first.status %}
                                 {% if status == 'Processed' %}
-                                <a href="{% url 'admin_view_spectrograms' file.file_id %}" class="btn btn-sm btn-primary">
+                                <a href="{% url 'view_spectrograms' file.file_id %}" class="btn btn-sm btn-primary">
                                     <i class="fas fa-wave-square me-1"></i>View Analysis
                                 </a>
                                 {% endif %}
