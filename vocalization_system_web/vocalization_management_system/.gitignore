@@ -1,6 +1,0 @@
-# Ignore __pycache__ directories
-vocalization_management_app/__pycache__/
-vocalization_management_app/migrations/
-vocalization_management_system/__pycache__/
-__pycache__/
-# Ignore .pyc files

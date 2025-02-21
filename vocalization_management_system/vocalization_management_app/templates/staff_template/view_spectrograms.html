@@ -1,0 +1,151 @@
+{% extends 'staff_template/base_template.html' %}
+{% block title %}View Spectrograms{% endblock %}
+
+{% block custom_css %}
+<style>
+    .spectrogram-container {
+        margin-bottom: 30px;
+    }
+    .clip-card {
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .clip-info {
+        padding: 15px;
+    }
+    .audio-controls {
+        width: 100%;
+        margin: 10px 0;
+    }
+    .classification-badge {
+        font-size: 0.9em;
+        padding: 5px 10px;
+        border-radius: 15px;
+        margin-right: 10px;
+    }
+    .likely-match {
+        background-color: #28a745;
+        color: white;
+    }
+    .timestamp {
+        color: #666;
+        font-size: 0.9em;
+    }
+</style>
+{% endblock %}
+
+{% block main_content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">Audio Analysis Results</h2>
+            
+            <!-- Full Audio Spectrogram -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Full Audio Spectrogram</h5>
+                </div>
+                <div class="card-body">
+                    {% for spectrogram in spectrograms %}
+                        {% if spectrogram.is_full_audio %}
+                            <img src="{{ spectrogram.image_path.url }}" class="img-fluid" alt="Full Audio Spectrogram">
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Detected Clips -->
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Detected Saw Calls</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for clip in detected_clips %}
+                            <div class="col-md-6">
+                                <div class="card clip-card">
+                                    <div class="card-body">
+                                        <h6 class="card-title">
+                                            <span class="classification-badge likely-match">Likely Match</span>
+                                            Clip {{ forloop.counter }}
+                                        </h6>
+                                        
+                                        <!-- Clip Spectrogram -->
+                                        {% for spectrogram in spectrograms %}
+                                            {% if not spectrogram.is_full_audio and spectrogram.clip_start_time == clip.start_time and spectrogram.clip_end_time == clip.end_time %}
+                                                <img src="{{ spectrogram.image_path.url }}" class="img-fluid mb-3" alt="Clip Spectrogram">
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        <!-- Audio Player -->
+                                        <audio controls class="audio-controls">
+                                            <source src="{{ clip.detected_noise_file_path }}" type="audio/wav">
+                                            Your browser does not support the audio element.
+                                        </audio>
+                                        
+                                        <!-- Clip Details -->
+                                        <div class="clip-info">
+                                            <p class="timestamp mb-2">
+                                                <i class="fas fa-clock mr-2"></i>
+                                                Time: {{ clip.start_time }} - {{ clip.end_time }}
+                                            </p>
+                                            <p class="mb-0">
+                                                <small class="text-muted">
+                                                    File: {{ clip.original_file.audio_file_name }}
+                                                </small>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="col-12">
+                                <p class="text-muted">No saw calls detected in this audio file.</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Processing Logs -->
+            <div class="card mt-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Processing Logs</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Level</th>
+                                    <th>Message</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in processing_logs %}
+                                    <tr>
+                                        <td>{{ log.timestamp|date:"Y-m-d H:i:s" }}</td>
+                                        <td>
+                                            <span class="badge {% if log.level == 'ERROR' %}bg-danger{% elif log.level == 'WARNING' %}bg-warning{% elif log.level == 'SUCCESS' %}bg-success{% else %}bg-info{% endif %}">
+                                                {{ log.level }}
+                                            </span>
+                                        </td>
+                                        <td>{{ log.message }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block custom_js %}
+<script>
+    // Add any custom JavaScript here
+</script>
+{% endblock %}

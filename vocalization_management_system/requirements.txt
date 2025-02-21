@@ -1,0 +1,10 @@
+Django>=5.1.2
+librosa>=0.10.1
+numpy>=1.24.0
+scipy>=1.11.0
+matplotlib>=3.7.0
+pillow>=10.0.0
+soundfile>=0.12.1
+django-crispy-forms>=2.0
+crispy-bootstrap5>=0.7
+python-dotenv>=1.0.0

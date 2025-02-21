@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload Audio{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Upload Form Column -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-upload me-2"></i>Upload Audio File
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        {% if messages %}
+                        <div class="alert alert-info">
+                            {% for message in messages %}
+                                {{ message }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        {% for field in form %}
+                        <div class="mb-3">
+                            <label for="{{ field.id_for_label }}" class="form-label">
+                                {{ field.label }}
+                            </label>
+                            <div class="input-group">
+                                {{ field }}
+                            </div>
+                            {% if field.help_text %}
+                            <div class="form-text text-muted">
+                                {{ field.help_text }}
+                            </div>
+                            {% endif %}
+                            {% if field.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ field.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload me-2"></i>Upload
+                            </button>
+                            <a href="{% url 'admin_home' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Processing Status -->
+            <div class="card mt-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Processing Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">
+                        After uploading, your audio file will be automatically processed to:
+                    </p>
+                    <ul class="mt-2">
+                        <li>Generate spectrograms for visualization</li>
+                        <li>Detect and classify saw calls</li>
+                        <li>Create analysis reports</li>
+                    </ul>
+                    <p class="text-muted mb-0">
+                        <i class="fas fa-clock me-2"></i>Processing time may vary depending on file size
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- File List Column -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-audio me-2"></i>Uploaded Audio Files
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if audio_files %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>File Name</th>
+                                    <th>Upload Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in audio_files %}
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-file-audio text-primary me-2"></i>
+                                        {{ file.audio_file_name }}
+                                    </td>
+                                    <td>{{ file.upload_date|date:"M d, Y H:i" }}</td>
+                                    <td>
+                                        {% if file.database_entry.first %}
+                                            {% with status=file.database_entry.first.status %}
+                                                {% if status == 'Processing' %}
+                                                    <span class="badge bg-warning">Processing</span>
+                                                {% elif status == 'Processed' %}
+                                                    <span class="badge bg-success">Processed</span>
+                                                {% elif status == 'Failed' %}
+                                                    <span class="badge bg-danger">Failed</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">{{ status }}</span>
+                                                {% endif %}
+                                            {% endwith %}
+                                        {% else %}
+                                            <span class="badge bg-secondary">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if file.file_id %}
+                                        <a href="{% url 'admin_view_spectrograms' file.file_id %}" class="btn btn-sm btn-info" title="View Spectrograms">
+                                            <i class="fas fa-chart-line"></i>
+                                        </a>
+                                        {% else %}
+                                        <button class="btn btn-sm btn-secondary" disabled title="Processing">
+                                            <i class="fas fa-spinner fa-spin"></i>
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-folder-open fa-3x mb-3"></i>
+                        <p>No audio files uploaded yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">
+        <i class="fas fa-tachometer-alt me-2"></i>Admin Dashboard
+    </h2>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <a href="{% url 'upload_audio' %}" class="card text-decoration-none">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">
+                        <i class="fas fa-upload me-2"></i>Upload Audio
+                    </h5>
+                    <p class="card-text text-muted">Upload new audio files for processing</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-6">
+            <a href="{% url 'manage_staff' %}" class="card text-decoration-none">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">
+                        <i class="fas fa-users me-2"></i>Manage Staff
+                    </h5>
+                    <p class="card-text text-muted">Add or manage staff accounts</p>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Include Live Logging Component -->
+    {% include 'components/live_logging.html' %}
+
+    <!-- Audio Files List -->
+    <div class="card mt-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-file-audio me-2"></i>Audio Files
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>File Name</th>
+                            <th>Upload Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in audio_files %}
+                        <tr>
+                            <td>{{ file.audio_file_name }}</td>
+                            <td>{{ file.upload_date|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                {% with status=file.database_entry.first.status %}
+                                <span class="badge {% if status == 'Processing' %}bg-warning{% elif status == 'Processed' %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ status }}
+                                </span>
+                                {% endwith %}
+                            </td>
+                            <td>
+                                {% with status=file.database_entry.first.status %}
+                                {% if status == 'Processed' %}
+                                <a href="{% url 'admin_view_spectrograms' file.file_id %}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-wave-square me-1"></i>View Analysis
+                                </a>
+                                {% endif %}
+                                {% endwith %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center">No audio files available.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
