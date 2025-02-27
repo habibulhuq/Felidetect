@@ -59,7 +59,7 @@ def process_audio(file_path, original_audio):
             level='INFO'
         )
         
-        saw_call_segments = detect_saw_calls(y, sr)
+        saw_call_segments = find_events_within_threshold(y, sr)
         
         ProcessingLog.objects.create(
             audio_file=original_audio,
