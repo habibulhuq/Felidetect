@@ -13,6 +13,8 @@ from .models import ProcessedAudioFile, DetectedNoiseAudioFile, Spectrogram, Wav
 from scipy.signal import stft
 from scipy.io import wavfile as wav
 from django.conf import settings
+import pandas as pd
+import re
 
 def ensure_directory_exists(directory):
     """Ensure that a directory exists, create if it doesn't"""
@@ -161,67 +163,121 @@ def process_audio(file_path, original_audio):
             db_entry.save()
         return False
 
-def detect_saw_calls(audio_data, sample_rate):
+def seconds_to_timestamp(seconds):
     """
-    Detects saw calls in an audio signal using STFT analysis.
-    
+    Converts seconds to a timestamp in HH:MM:SS format, with seconds rounded to two decimal places.
     Parameters:
-    - audio_data (numpy array): Audio signal data
-    - sample_rate (int): Sampling rate of the audio
-    
+    - seconds (float): The number of seconds to convert.
     Returns:
-    - saw_call_timestamps (list of tuples): List of (start_time, end_time) tuples for detected saw calls
+    - str: The timestamp in HH:MM:SS.SS format.
     """
-    # Parameters for saw call detection
-    min_mag = 3500
-    max_mag = 10000
-    min_freq = 15
-    max_freq = 300
-    segment_duration = 0.1
-    time_threshold = 5
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{int(hours):02}:{int(minutes):02}:{seconds:05.2f}"
 
-    # Convert audio data to float32 if not already
+def find_events_within_threshold(file_path, dataset, callset, min_mag=3500, max_mag=10000, min_freq=15, max_freq=300, segment_duration=.1, time_threshold=5):
+    """
+    Reads a WAV audio file, computes its STFT to find major magnitude events over time,
+    and stores events that exceed a magnitude threshold.
+
+    Parameters:
+    - file_path (str): Path to the WAV file.
+    - dataset (list): List of lists to store impulses ([file_path, start, end, magnitude, frequency, count]).
+    - callset (list): List of lists to store calls ([file_path, start, end, magnitude, frequency, count]).
+    - min_mag (float): The magnitude minimum for event detection (default is 3500).
+    - max_mag (float): The magnitude maximum for event detection (default is 10000).
+    - min_freq (float): The minimum frequency for event detection (default is 15hz).
+    - max_freq (float): The maximum frequency for event detection (default is 300hz).
+    - segment_duration (float): Duration of each STFT segment in seconds (default is 0.1s).
+    - time_threshold (float): Time threshold in seconds for merging events (default is 5s).
+
+    Returns:
+    - None
+    """
+    try:
+        sample_rate, audio_data = wav.read(file_path)
+    except Exception as e:
+        print(f"Error: {file_path} is not an audio file or doesn't exist. ({e})")
+        return
+
+    # If stereo, take just one channel
+    if len(audio_data.shape) == 2:
+        audio_data = audio_data[:, 0]
+
+    # Convert audio data to np.float32 for efficiency
     audio_data = audio_data.astype(np.float32)
+    # Remove DC offset by subtracting the mean
+    audio_data -= np.mean(audio_data)
 
-    # Remove DC offset
-    audio_data = audio_data - np.mean(audio_data)
-
-    # Compute STFT
+    # Compute the STFT with a specified segment duration
     nperseg = int(segment_duration * sample_rate)
-    f, t, Zxx = stft(audio_data, fs=sample_rate, nperseg=nperseg)
-
-    # Get magnitude spectrum
-    mag = np.abs(Zxx)
-
-    # Find frequency bins within our range of interest
-    freq_mask = (f >= min_freq) & (f <= max_freq)
-    freq_indices = np.where(freq_mask)[0]
+    frequencies, times, Zxx = stft(audio_data, fs=sample_rate, nperseg=nperseg)
+    magnitude = np.abs(Zxx)  # Magnitude of the STFT result
 
     # Initialize variables for event detection
-    events = []
-    current_event = None
+    last_event_time_seconds = None
+    event_data = []
 
-    # Analyze each time point
-    for i in range(len(t)):
-        # Check if any frequency in our range exceeds the magnitude threshold
-        magnitudes = mag[freq_indices, i]
-        if np.any((magnitudes >= min_mag) & (magnitudes <= max_mag)):
-            time = t[i]
-            if current_event is None:
-                current_event = [time, time]  # [start, end]
+    # Iterate over each time frame, using np.where to find indices where magnitude exceeds threshold
+    for time_idx in range(magnitude.shape[1]):
+        # Filter for magnitudes above the threshold
+        magnitudes_at_time = magnitude[:, time_idx]
+        valid_indices = np.where(np.logical_and(magnitudes_at_time < max_mag, magnitudes_at_time > min_mag))[0]
+
+        if valid_indices.size == 0:
+            continue  # Skip if no magnitudes exceed the threshold
+
+        event_time_seconds = times[time_idx]
+        event_time_str = seconds_to_timestamp(event_time_seconds)
+
+        # Extract valid frequencies and magnitudes
+        valid_frequencies = frequencies[valid_indices]
+        valid_magnitudes = magnitudes_at_time[valid_indices]
+
+        # Filter frequencies between 15 and 300 Hz
+        freq_mask = (valid_frequencies < max_freq) & (valid_frequencies > min_freq)
+        valid_frequencies = valid_frequencies[freq_mask]
+        valid_magnitudes = valid_magnitudes[freq_mask]
+
+        # Process events more efficiently
+        for freq, mag in zip(valid_frequencies, valid_magnitudes):
+            if last_event_time_seconds is None:
+                # First event, add to dataset
+                event_data.append([file_path, event_time_str, event_time_str, mag, freq, 1])
+                last_event_time_seconds = event_time_seconds
+
             else:
-                current_event[1] = time  # Update end time
-        elif current_event is not None:
-            # Check if the gap is small enough to continue the current event
-            if time - current_event[1] > time_threshold:
-                events.append(current_event)
-                current_event = None
+                # Check if the event is within the 5-second window and more than .1 seconds later
+                time_diff = event_time_seconds - last_event_time_seconds
 
-    # Add the last event if there is one
-    if current_event is not None:
-        events.append(current_event)
+                if time_diff <= time_threshold and time_diff > .1:  # Events within 5 seconds are merged
+                    # Extend the duration of the last event
+                    event_data[-1][2] = seconds_to_timestamp(event_time_seconds)
+                    # increase count of impulses
+                    event_data[-1][5] += 1
 
-    return events
+                    # checks if impulses are greater than 3
+                    if int(event_data[-1][5]) > 2:  # Ensure that count is an integer before comparison
+                      # if its 3, create an event based off of impulse data
+                      if int(event_data[-1][5]) < 4:
+                        callset.append([file_path, event_data[-1][1], event_data[-1][2], event_data[-1][3], event_data[-1][4], 1])
+
+                        # if more than 3
+                      elif int(event_data[-1][5]) % 3 == 0:
+                        # Extend the duration of the last call
+                        callset[-1][2] = event_data[-1][2]
+                        # set count of calls to impulse divided by 3
+                        callset[-1][5] = int(event_data[-1][5]) / 3
+
+                elif time_diff > time_threshold:
+                    # Add new event
+                    event_data.append([file_path, event_time_str, event_time_str, mag, freq, 1])
+
+                # updates last event time
+                last_event_time_seconds = event_time_seconds
+
+    # Append all collected events to dataset at once
+    dataset.extend(event_data)
 
 def generate_spectrogram(y, sr, filename):
     """
@@ -274,3 +330,35 @@ def generate_waveform(y, sr, filename):
     finally:
         # Ensure cleanup
         plt.close('all')
+
+def create_calls_timeline(df):
+    """
+    Creates a timeline of detected call events from the DataFrame produced by find_events_within_threshold.
+
+    Parameters:
+    - df (pd.DataFrame): DataFrame containing columns ['File', 'Start', 'End', 'Magnitude', 'Frequency', 'Count']
+
+    Returns:
+    - calls_per_day (pd.DataFrame): Aggregated number of calls per day
+    """
+    # Ensure required columns exist
+    if 'File' not in df.columns or 'Start' not in df.columns or 'Count' not in df.columns:
+        raise ValueError("DataFrame must contain 'File', 'Start', and 'Count' columns.")
+
+    # Extract date from Start timestamp
+    df['date'] = pd.to_datetime(df['Start']).dt.date
+
+    # Aggregate calls per day
+    calls_per_day = df.groupby('date')['Count'].sum().reset_index()
+
+    # Plot the timeline
+    plt.figure(figsize=(10, 5))
+    plt.plot(calls_per_day['date'], calls_per_day['Count'], marker='o', linestyle='-')
+    plt.xlabel('Date')
+    plt.ylabel('Number of Calls')
+    plt.title('Calls Per Day Timeline')
+    plt.xticks(rotation=45)
+    plt.grid()
+    plt.show()
+
+    return calls_per_day
