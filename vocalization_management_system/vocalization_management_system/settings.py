@@ -78,8 +78,16 @@ AUTH_USER_MODEL = 'vocalization_management_app.CustomUser'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        'ENGINE': 'sql_server.pyodbc',
+        'NAME': 'placeholder_name', # Needs replace
+        'USER': 'placeholder_user',  # Needs replace
+        'PASSWORD': 'placeholder_password',  # Needs replace
+        'HOST': 'placeholder.database.windows.net',  # Needs replace
+        'PORT': '',  # Leave this empty for default (1433)
+        'OPTIONS': {
+            'driver': 'ODBC Driver 17 for SQL Server',  # Need correct ODBC driver installed
+            'extra_params': 'TrustServerCertificate=yes',  # Optional: depends on SSL settings
+        },
     }
 }
 
@@ -131,4 +139,11 @@ APPEND_SLASH = False  # settings.py
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# for blob storage in azure (pretty sure we are using this)
+DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
+AZURE_ACCOUNT_NAME = 'storage-account-name'
+AZURE_ACCOUNT_KEY = 'storage-account-key'
+AZURE_CONTAINER = 'container-name'
+
 
