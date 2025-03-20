@@ -274,3 +274,36 @@ def generate_waveform(y, sr, filename):
     finally:
         # Ensure cleanup
         plt.close('all')
+
+from .models import OriginalAudioFile
+
+def search_by_animal(animal_name: str):
+    # function to return list of audio files by name, i.e "amur_leopard"
+    try:
+        # Fetch all audio files related to the given animal
+        audio_files = OriginalAudioFile.objects.filter(animal_type=animal_name)
+        
+        # Return the list of audio files
+        return audio_files
+    except Exception as e:
+        # In case of an error (e.g., invalid animal name or database error)
+        print(f"Error: {str(e)}")
+        return []
+    
+from .models import OriginalAudioFile
+
+def search_by_zoo(zoo_name: str):
+    # function to return list of audio files by name, i.e "beardsley"
+    try:
+        # Fetch all audio files related to the given zoo
+        audio_files = OriginalAudioFile.objects.filter(zoo=zoo_name)
+        
+        # Return the list of audio files
+        return audio_files
+    except Exception as e:
+        # In case of an error (e.g., invalid zoo name or database error)
+        print(f"Error: {str(e)}")
+        return []
+
+
+
