@@ -9,6 +9,7 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from .models import OriginalAudioFile
+from django.db import connection
 
 def home(request):
     return redirect('login')
@@ -190,3 +191,15 @@ def view_spectrograms(request, file_id=None):
             'audio_files': audio_files,
         }
         return render(request, 'common/view_spectrograms.html', context)
+    
+def view_timelines(request):
+    if request.method == 'POST':
+        animal_habitat = request.POST['animal_habitat']
+        start_date = request.POST['start_date']
+        end_date = request.POST['end_date']
+        # TODO: implement timeline generation logic here
+        timeline = ''  # placeholder for timeline generation
+        return render(request, 'common/view_timelines.html', {'timeline': timeline})
+    else:
+        animal_habitats = []  # empty list for now
+        return render(request, 'common/view_timelines.html', {'animal_habitats': animal_habitats})
