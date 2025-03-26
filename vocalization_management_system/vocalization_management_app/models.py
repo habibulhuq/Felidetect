@@ -76,6 +76,9 @@ class OriginalAudioFile(models.Model):
         ('amur_leopard', 'Amur Leopard'),
         ('amur_tiger', 'Amur Tiger'),
     ]
+    ZOO_CHOICES = [
+        ('Breadsly_zoo', 'Breadsly Zoo'),
+    ]
 
     file_id = models.AutoField(primary_key=True)
     audio_file = models.FileField(
@@ -87,11 +90,15 @@ class OriginalAudioFile(models.Model):
     recording_date = models.DateTimeField(blank=True, null=True)
     animal_type = models.CharField(max_length=20, choices=ANIMAL_CHOICES)
     animal = models.ForeignKey(AnimalTable, on_delete=models.CASCADE, related_name="original_audio", blank=True, null=True)
-    zoo = models.ForeignKey(Zoo, on_delete=models.CASCADE, related_name="original_audio", blank=True, null=True)
+    zoo = models.ForeignKey(Zoo, on_delete=models.CASCADE, related_name="original_audio", choices=ZOO_CHOICES, blank=True, null=True)
     file_size_mb = models.FloatField(blank=True, null=True)
     upload_date = models.DateTimeField(default=now)
     uploaded_by = models.ForeignKey(AdminProfile, on_delete=models.CASCADE, related_name="uploaded_audio", blank=True, null=True)
-
+    analysis_excel = models.FileField(upload_to='analysis_excel/', null=True, blank=True)
+    duration_seconds = models.FloatField(blank=True, null=True)
+    duration = models.CharField(max_length=20, blank=True, null=True)
+    sample_rate = models.IntegerField(blank=True, null=True)
+    
     def __str__(self):
         return f"{self.animal_type} - {self.audio_file_name}"
 
@@ -120,13 +127,15 @@ class ProcessedAudioFile(models.Model):
 class DetectedNoiseAudioFile(models.Model):
     detected_noise_file_id = models.AutoField(primary_key=True)
     original_file = models.ForeignKey(OriginalAudioFile, on_delete=models.CASCADE, related_name="detected_noises")
-    detected_noise_file_path = models.CharField(max_length=255)
+    detected_noise_file_path = models.CharField(max_length=255, blank=True, null=True)
     start_time = models.TimeField()
     end_time = models.TimeField()
     saw_count = models.IntegerField()
     saw_call_count = models.IntegerField()
-    file_size_mb = models.FloatField()
+    file_size_mb = models.FloatField(blank=True, null=True)
     upload_date = models.DateTimeField(default=now)
+    frequency = models.FloatField(blank=True, null=True)  # Frequency in Hz
+    magnitude = models.FloatField(blank=True, null=True)  # Magnitude of the detected call
 
     # Automatically determine if the noise should be verified
     def save(self, *args, **kwargs):
@@ -200,9 +209,16 @@ class ProcessingLog(models.Model):
 # Database Model (Metadata & Processing Status)
 class Database(models.Model):
     audio_file = models.ForeignKey(OriginalAudioFile, on_delete=models.CASCADE, related_name='database_entry')
-    status = models.CharField(max_length=20, choices=[('Pending', 'Pending'), ('Processed', 'Processed')], default='Pending')
+    status = models.CharField(max_length=20, choices=[
+        ('Pending', 'Pending'), 
+        ('Processing', 'Processing'), 
+        ('Processed', 'Processed'),
+        ('Failed', 'Failed')
+    ], default='Pending')
     processed_by = models.ForeignKey(StaffProfile, on_delete=models.CASCADE, null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    processing_start_time = models.DateTimeField(null=True, blank=True)
+    processing_end_time = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"Database entry for {self.audio_file.audio_file_name}"

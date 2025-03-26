@@ -1,0 +1,333 @@
+{% comment %}
+Partial template for displaying audio file processing status
+This can be included in admin and staff dashboards
+{% endcomment %}
+
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-tasks me-2"></i>Audio Processing Status
+        </h5>
+        <span class="badge {% if processor_status == 'Running' %}bg-success{% else %}bg-warning{% endif %} p-2">
+            Processor: {{ processor_status }}
+        </span>
+    </div>
+    <div class="card-body">
+        <!-- Processing Statistics -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h3 class="text-primary">{{ total_files }}</h3>
+                        <p class="mb-0">Total Files</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h3 class="text-warning">{{ pending_files }}</h3>
+                        <p class="mb-0">Pending</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h3 class="text-info">{{ processing_files }}</h3>
+                        <p class="mb-0">Processing</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h3 class="text-success">{{ processed_files }}</h3>
+                        <p class="mb-0">Processed</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Currently Processing Files -->
+        {% if processing_files_details %}
+        <div class="mb-4">
+            <h6 class="border-bottom pb-2 mb-3">Currently Processing</h6>
+            <div class="list-group">
+                {% for file in processing_files_details %}
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">{{ file.audio_file.audio_file_name }}</h6>
+                        <small>Started: {{ file.processing_start_time|date:"H:i:s" }}</small>
+                    </div>
+                    <div class="progress mt-2" style="height: 10px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 100%"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Pending Files -->
+        {% if pending_files_details %}
+        <div class="mb-4">
+            <h6 class="border-bottom pb-2 mb-3">Pending Files ({{ pending_files_details.count }})</h6>
+            <div class="list-group">
+                {% for file in pending_files_details|slice:":5" %}
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">{{ file.audio_file.audio_file_name }}</h6>
+                        <small>Uploaded: {{ file.audio_file.upload_date|date:"Y-m-d H:i" }}</small>
+                    </div>
+                    <p class="mb-1 text-muted small">Waiting to be processed...</p>
+                </div>
+                {% endfor %}
+                {% if pending_files_details.count > 5 %}
+                <div class="list-group-item text-center text-muted">
+                    <small>+ {{ pending_files_details.count|add:"-5" }} more pending files</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Processing Controls -->
+        <div class="d-flex justify-content-between">
+            <a href="{% if user.user_type == '1' %}{% url 'process_audio_files' %}{% else %}{% url 'staff_process_audio_files' %}{% endif %}" 
+               class="btn btn-primary {% if pending_files == 0 %}disabled{% endif %}">
+                <i class="fas fa-play me-2"></i>Process Pending Files
+            </a>
+            
+            <div>
+                <a href="#" class="btn btn-outline-success" id="startProcessorBtn" 
+                   {% if processor_status == 'Running' %}style="display: none;"{% endif %}>
+                    <i class="fas fa-power-off me-2"></i>Start Background Processor
+                </a>
+                <a href="#" class="btn btn-outline-danger" id="stopProcessorBtn"
+                   {% if processor_status == 'Stopped' %}style="display: none;"{% endif %}>
+                    <i class="fas fa-stop-circle me-2"></i>Stop Background Processor
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Processing Logs -->
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-history me-2"></i>Recent Processing Logs
+        </h5>
+        <button id="refreshLogsBtn" class="btn btn-sm btn-outline-light">
+            <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+    </div>
+    <div class="card-body p-0" id="logsContainer">
+        <div class="list-group list-group-flush">
+            {% for log in recent_logs %}
+            <div class="list-group-item">
+                <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1">
+                        <span class="badge {% if log.level == 'ERROR' %}bg-danger{% elif log.level == 'WARNING' %}bg-warning{% elif log.level == 'SUCCESS' %}bg-success{% else %}bg-info{% endif %} me-2">
+                            {{ log.level }}
+                        </span>
+                        {{ log.audio_file.audio_file_name|truncatechars:30 }}
+                    </h6>
+                    <small>{{ log.timestamp|date:"Y-m-d H:i:s" }}</small>
+                </div>
+                <p class="mb-1">{{ log.message }}</p>
+            </div>
+            {% empty %}
+            <div class="list-group-item text-center text-muted py-3">
+                <p class="mb-0">No processing logs available</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for controlling the background processor -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const startBtn = document.getElementById('startProcessorBtn');
+        const stopBtn = document.getElementById('stopProcessorBtn');
+        const refreshLogsBtn = document.getElementById('refreshLogsBtn');
+        const logsContainer = document.getElementById('logsContainer');
+        
+        // Function to fetch and update logs
+        function fetchRecentLogs() {
+            fetch('/vocalization_management_app/api/get_recent_logs/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateLogsDisplay(data.data);
+                    } else {
+                        console.error('Error fetching logs:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching logs:', error);
+                });
+        }
+        
+        // Function to update the logs display
+        function updateLogsDisplay(logs) {
+            if (logs.length === 0) {
+                logsContainer.innerHTML = '<div class="list-group-item text-center text-muted py-3"><p class="mb-0">No processing logs available</p></div>';
+                return;
+            }
+            
+            let logsHtml = '<div class="list-group list-group-flush">';
+            
+            logs.forEach(log => {
+                // Determine badge class based on log level
+                let badgeClass = 'bg-info';
+                
+                if (log.level === 'ERROR') {
+                    badgeClass = 'bg-danger';
+                } else if (log.level === 'WARNING') {
+                    badgeClass = 'bg-warning';
+                } else if (log.level === 'SUCCESS') {
+                    badgeClass = 'bg-success';
+                }
+                
+                // Format the log message to highlight new metadata
+                let message = log.message;
+                if (log.contains_timestamp) {
+                    // Highlight timestamp information
+                    message = message.replace(/(Start=\d{2}:\d{2}:\d{2}\.\d{2})/g, '<span class="text-primary fw-bold">$1</span>');
+                    message = message.replace(/(End=\d{2}:\d{2}:\d{2}\.\d{2})/g, '<span class="text-primary fw-bold">$1</span>');
+                    message = message.replace(/(Duration=\d+\.\d+s)/g, '<span class="text-primary fw-bold">$1</span>');
+                }
+                if (log.contains_frequency) {
+                    // Highlight frequency information
+                    message = message.replace(/(Freq=\d+\.\d+Hz)/g, '<span class="text-success fw-bold">$1</span>');
+                }
+                if (log.contains_magnitude) {
+                    // Highlight magnitude information
+                    message = message.replace(/(Mag=\d+\.\d+)/g, '<span class="text-info fw-bold">$1</span>');
+                }
+                if (log.contains_impulses) {
+                    // Highlight impulses information
+                    message = message.replace(/(Impulses=\d+)/g, '<span class="text-warning fw-bold">$1</span>');
+                }
+                
+                logsHtml += `
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">
+                                <span class="badge ${badgeClass} me-2">${log.level}</span>
+                                ${log.file_name ? log.file_name.substring(0, 30) : 'System'}
+                            </h6>
+                            <small>${log.timestamp}</small>
+                        </div>
+                        <p class="mb-1">${message}</p>
+                    </div>
+                `;
+            });
+            
+            logsHtml += '</div>';
+            logsContainer.innerHTML = logsHtml;
+        }
+        
+        // Add event listener for refresh button
+        if (refreshLogsBtn) {
+            refreshLogsBtn.addEventListener('click', function() {
+                refreshLogsBtn.disabled = true;
+                refreshLogsBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
+                
+                fetchRecentLogs();
+                
+                setTimeout(() => {
+                    refreshLogsBtn.disabled = false;
+                    refreshLogsBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh';
+                }, 1000);
+            });
+        }
+        
+        if (startBtn) {
+            startBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                fetch('/vocalization_management_app/api/start_processor/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        startBtn.style.display = 'none';
+                        stopBtn.style.display = 'inline-block';
+                        // Reload the page to update status
+                        setTimeout(() => location.reload(), 1000);
+                    }
+                });
+            });
+        }
+        
+        if (stopBtn) {
+            stopBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                fetch('/vocalization_management_app/api/stop_processor/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        stopBtn.style.display = 'none';
+                        startBtn.style.display = 'inline-block';
+                        // Reload the page to update status
+                        setTimeout(() => location.reload(), 1000);
+                    }
+                });
+            });
+        }
+        
+        // Helper function to get CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        // Initial fetch of logs
+        fetchRecentLogs();
+        
+        // Auto-refresh every 10 seconds
+        const autoRefreshInterval = setInterval(() => {
+            fetchRecentLogs();
+            
+            // Also update the processing status
+            fetch('/vocalization_management_app/api/get_status/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // If there are significant changes, reload the page
+                        if (data.data.processing > 0 || data.data.pending > 0) {
+                            location.reload();
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking processing status:', error);
+                });
+        }, 10000);
+    });
+</script>
