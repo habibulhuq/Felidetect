@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}View Timelines{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h2 class="mb-0">View Timelines</h2>
+        </div>
+        <div class="card-body">
+            <form id="timeline-form" class="needs-validation" novalidate>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="animal_habitat" class="form-label">Select Animal/Habitat</label>
+                        <select id="animal_habitat" name="animal_habitat" class="form-select" required>
+                            <option value="" selected disabled>Choose...</option>
+                            {% if animal_habitats %}
+                                {% for habitat in animal_habitats %}
+                                    <option value="{{ habitat }}">{{ habitat }}</option>
+                                {% endfor %}
+                            {% else %}
+                                <option value="" disabled>No habitats available</option>
+                            {% endif %}
+                        </select>
+                        <div class="invalid-feedback">
+                            Please select an animal/habitat.
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="start_date" class="form-label">Start Date</label>
+                        <input type="date" id="start_date" name="start_date" class="form-control" required>
+                        <div class="invalid-feedback">
+                            Please select a start date.
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="end_date" class="form-label">End Date</label>
+                        <input type="date" id="end_date" name="end_date" class="form-control" required>
+                        <div class="invalid-feedback">
+                            Please select an end date.
+                        </div>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-clock me-2"></i>Generate Timeline
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="timeline-container" class="mt-4">
+        <div class="card">
+            <div class="card-body">
+                <div id="timeline-placeholder" class="text-center text-muted py-5">
+                    <i class="fas fa-timeline fa-3x mb-3"></i>
+                    <h4>Timeline will appear here</h4>
+                    <p>Select the parameters above and click "Generate Timeline" to view the data.</p>
+                </div>
+                <div id="timeline-content" style="display: none;">
+                    <!-- Timeline will be dynamically inserted here -->
+
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Form validation
+        const form = document.getElementById('timeline-form');
+        const startDate = document.getElementById('start_date');
+        const endDate = document.getElementById('end_date');
+
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            if (!form.checkValidity()) {
+                event.stopPropagation();
+            } else {
+                // Hide placeholder and show loading state
+                document.getElementById('timeline-placeholder').style.display = 'none';
+                document.getElementById('timeline-content').style.display = 'block';
+                document.getElementById('timeline-content').innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+                
+                // TODO: Add your timeline generation logic here
+                // This is where you'll connect your timeline method
+            }
+            
+            form.classList.add('was-validated');
+        });
+
+        // Date validation
+        endDate.addEventListener('change', function() {
+            if (startDate.value && endDate.value) {
+                if (new Date(endDate.value) < new Date(startDate.value)) {
+                    endDate.setCustomValidity('End date must be after start date');
+                } else {
+                    endDate.setCustomValidity('');
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}
