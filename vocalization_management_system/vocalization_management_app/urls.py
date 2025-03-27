@@ -14,6 +14,8 @@ urlpatterns = [
     path('upload_audio/', adminViews.upload_audio, name="upload_audio"),
     path('manage_staff/', adminViews.manage_staff, name="manage_staff"),
     path('view_spectrograms/<int:file_id>/', views.view_spectrograms, name="view_spectrograms"),
+    path('graphs/', views.graphs, name="graphs"),
+    path('api/graph-data/', views.get_graph_data, name="get_graph_data"),
     
     # Staff URLs
     path('staff_home/', staffViews.staff_home, name="staff_home"),
