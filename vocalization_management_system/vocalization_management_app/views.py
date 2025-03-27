@@ -1,6 +1,14 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
+from django.contrib import messages
+from .EmailBackEnd import EmailBackEnd
+from .models import CustomUser
+import numpy as np
+from scipy import signal
+from scipy.fft import fft
+from datetime import datetime
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseForbidden
 from django.contrib.auth.hashers import make_password
@@ -103,6 +111,62 @@ def logout_user(request):
     logout(request)
     messages.success(request, "You have been successfully logged out.")
     return redirect('login')
+
+@login_required
+def graphs(request):
+    """
+    View for displaying the graphs page with spectrograph and Fourier transform options.
+    Only accessible to authenticated users.
+    """
+    return render(request, 'graphs.html')
+
+@login_required
+def get_graph_data(request):
+    """
+    API endpoint to get graph data based on the selected date and options.
+    Returns spectrograph and/or Fourier transform data as requested.
+    """
+    date_str = request.GET.get('date')
+    show_spectrograph = request.GET.get('spectrograph') == 'true'
+    show_fourier = request.GET.get('fourier') == 'true'
+    
+    try:
+        selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        audio_files = OriginalAudioFile.objects.filter(
+            upload_date__date=selected_date
+        )
+        
+        if not audio_files:
+            return JsonResponse({'error': 'No audio files found for the selected date'})
+            
+        # For demonstration, we'll use the first audio file
+        audio_file = audio_files[0]
+        
+        response_data = {}
+        
+        if show_spectrograph:
+            # Get spectrogram data (you'll need to implement the actual audio processing)
+            # This is a placeholder that should be replaced with actual spectrogram calculation
+            response_data['spectrograph'] = {
+                'frequencies': [],
+                'times': [],
+                'intensities': []
+            }
+            
+        if show_fourier:
+            # Get Fourier transform data (you'll need to implement the actual audio processing)
+            # This is a placeholder that should be replaced with actual FFT calculation
+            response_data['fourier'] = {
+                'frequencies': [],
+                'magnitudes': []
+            }
+            
+        return JsonResponse(response_data)
+        
+    except ValueError:
+        return JsonResponse({'error': 'Invalid date format'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)})
 
 def change_password(request):
     if request.method == "POST":
