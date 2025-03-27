@@ -1,258 +1,262 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container">
     {% if original_file %}
-        <h2>Extracted Clips - {{ original_file.audio_file_name }}</h2>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="mb-0">Spectrograms</h2>
+            {% if request.user.user_type == '1' %}
+                <a href="{% url 'view_analysis' original_file.file_id %}" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Analysis
+                </a>
+            {% elif request.user.user_type == '2' %}
+                <a href="{% url 'staff_view_analysis' original_file.file_id %}" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Analysis
+                </a>
+            {% endif %}
+        </div>
         
-        <!-- Processing Status and Logs -->
-        <div class="row mb-4">
-            <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">{{ original_file.audio_file_name }}</h4>
                 {% if processing_status %}
-                    <div class="alert {% if processing_status.status == 'Processed' %}alert-success{% elif processing_status.status == 'Failed' %}alert-danger{% else %}alert-info{% endif %}">
-                        Status: {{ processing_status.status }}
+                    <span class="badge {% if processing_status.status == 'Processed' %}bg-success{% elif processing_status.status == 'Failed' %}bg-danger{% elif processing_status.status == 'Processing' %}bg-warning{% else %}bg-info{% endif %}">
+                        {{ processing_status.status }}
+                    </span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Animal Type:</strong> {{ original_file.get_animal_type_display }}</p>
+                        <p><strong>Recording Date:</strong> {{ original_file.recording_date }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Upload Date:</strong> {{ original_file.upload_date }}</p>
+                        <p><strong>File Size:</strong> {{ original_file.file_size_mb|floatformat:2 }} MB</p>
+                    </div>
+                </div>
+                
+                <div class="d-flex gap-2 mt-3">
+                    {% if original_file.analysis_excel %}
+                        {% if request.user.user_type == '1' %}
+                            <a href="{% url 'download_excel' original_file.file_id %}" class="btn btn-success">
+                                <i class="fas fa-file-excel me-2"></i>Download Excel
+                            </a>
+                        {% else %}
+                            <a href="{% url 'staff_download_excel' original_file.file_id %}" class="btn btn-success">
+                                <i class="fas fa-file-excel me-2"></i>Download Excel
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                    
+                    {% if original_file.audio_file %}
+                        <button class="btn btn-outline-primary" onclick="playAudio('{{ original_file.audio_file.url }}')">
+                            <i class="fas fa-play me-2"></i>Play Audio
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Spectrograms Gallery -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Spectrograms Gallery</h5>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary" id="galleryViewBtn" onclick="switchToGalleryView()">
+                        <i class="fas fa-th"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" id="listViewBtn" onclick="switchToListView()">
+                        <i class="fas fa-list"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if spectrograms %}
+                    <!-- Gallery View -->
+                    <div id="galleryView" class="row">
+                        {% for spectrogram in spectrograms %}
+                            <div class="col-md-4 mb-4">
+                                <div class="card h-100">
+                                    <img src="{{ spectrogram.image.url }}" class="card-img-top spectrogram-img" alt="Spectrogram" onclick="showSpectrogramModal('{{ spectrogram.image.url }}', '{{ spectrogram.start_time }}', '{{ spectrogram.end_time }}')">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Saw Call #{{ forloop.counter }}</h6>
+                                        <p class="card-text mb-1"><small><strong>Start Time:</strong> {{ spectrogram.start_time }}</small></p>
+                                        <p class="card-text mb-1"><small><strong>End Time:</strong> {{ spectrogram.end_time }}</small></p>
+                                        <p class="card-text mb-1"><small><strong>Duration:</strong> {{ spectrogram.duration_seconds|floatformat:2 }}s</small></p>
+                                        <p class="card-text mb-1"><small><strong>Frequency:</strong> {{ spectrogram.frequency|floatformat:2 }} Hz</small></p>
+                                        <p class="card-text mb-1"><small><strong>Magnitude:</strong> {{ spectrogram.magnitude|floatformat:2 }}</small></p>
+                                        <p class="card-text mb-1"><small><strong>Impulses:</strong> {{ spectrogram.impulses }}</small></p>
+                                        
+                                        <div class="d-flex justify-content-between mt-2">
+                                            {% if spectrogram.clip_file %}
+                                                <button class="btn btn-sm btn-outline-primary" onclick="playAudio('{{ spectrogram.clip_file.url }}')">
+                                                    <i class="fas fa-play"></i> Play
+                                                </button>
+                                            {% endif %}
+                                            <a href="{{ spectrogram.image.url }}" download class="btn btn-sm btn-outline-success">
+                                                <i class="fas fa-download"></i> Download
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- List View -->
+                    <div id="listView" class="d-none">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Start Time</th>
+                                        <th>End Time</th>
+                                        <th>Duration</th>
+                                        <th>Frequency (Hz)</th>
+                                        <th>Magnitude</th>
+                                        <th>Impulses</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for spectrogram in spectrograms %}
+                                        <tr>
+                                            <td>{{ forloop.counter }}</td>
+                                            <td>{{ spectrogram.start_time }}</td>
+                                            <td>{{ spectrogram.end_time }}</td>
+                                            <td>{{ spectrogram.duration_seconds|floatformat:2 }}s</td>
+                                            <td>{{ spectrogram.frequency|floatformat:2 }}</td>
+                                            <td>{{ spectrogram.magnitude|floatformat:2 }}</td>
+                                            <td>{{ spectrogram.impulses }}</td>
+                                            <td>
+                                                <div class="btn-group">
+                                                    <button class="btn btn-sm btn-outline-primary" onclick="showSpectrogramModal('{{ spectrogram.image.url }}', '{{ spectrogram.start_time }}', '{{ spectrogram.end_time }}')">
+                                                        <i class="fas fa-image"></i>
+                                                    </button>
+                                                    {% if spectrogram.clip_file %}
+                                                        <button class="btn btn-sm btn-outline-info" onclick="playAudio('{{ spectrogram.clip_file.url }}')">
+                                                            <i class="fas fa-play"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                    <a href="{{ spectrogram.image.url }}" download class="btn btn-sm btn-outline-success">
+                                                        <i class="fas fa-download"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning">
+                        <p>No spectrograms available for this audio file.</p>
                     </div>
                 {% endif %}
             </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Processing Logs</h5>
-                    </div>
-                    <div class="card-body" style="max-height: 200px; overflow-y: auto;">
-                        {% for log in processing_logs %}
-                            <div class="log-entry">
-                                <span class="badge {% if log.level == 'ERROR' %}badge-danger{% elif log.level == 'WARNING' %}badge-warning{% elif log.level == 'SUCCESS' %}badge-success{% else %}badge-info{% endif %}">
-                                    {{ log.level }}
-                                </span>
-                                <small class="text-muted">{{ log.timestamp|date:"Y-m-d H:i:s" }}</small>
-                                <p class="mb-1">{{ log.message }}</p>
-                            </div>
-                        {% empty %}
-                            <p>No processing logs available.</p>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
         </div>
-        
-        <!-- File Info -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h4>File Information</h4>
-            </div>
-            <div class="card-body">
-                <p><strong>Animal Type:</strong> {{ original_file.get_animal_type_display }}</p>
-                <p><strong>Recording Date:</strong> {{ original_file.recording_date }}</p>
-                <p><strong>Upload Date:</strong> {{ original_file.upload_date }}</p>
-                <p><strong>File Size:</strong> {{ original_file.file_size_mb|floatformat:2 }} MB</p>
-            </div>
-        </div>
-        
-        <!-- Full Audio Spectrogram -->
-        {% if full_spectrogram %}
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h4>Full Audio Spectrogram</h4>
-                </div>
-                <div class="card-body">
-                    <img src="{{ full_spectrogram.image_path.url }}" class="img-fluid" alt="Full Audio Spectrogram">
-                </div>
-            </div>
-        {% endif %}
-        
-        <!-- Extracted Clips -->
-        <h3>Extracted Saw Calls</h3>
-        <div class="row">
-            {% for clip in clips_data %}
-                <div class="col-12 mb-4">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5>Clip {{ forloop.counter }} ({{ clip.start_time|floatformat:2 }}s - {{ clip.end_time|floatformat:2 }}s)</h5>
-                            <button class="btn btn-primary btn-sm" onclick="playAudio('{{ clip.audio_clip.detected_noise_file_path }}')">
-                                Play Audio
-                            </button>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-8">
-                                    <img src="{{ clip.spectrogram.image_path.url }}" class="img-fluid" alt="Clip Spectrogram">
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label>Verification Status:</label>
-                                        <select class="form-control verification-status" data-clip-id="{{ clip.audio_clip.detected_noise_file_id }}">
-                                            <option value="unverified">Unverified</option>
-                                            <option value="verified">Verified Saw Call</option>
-                                            <option value="false_positive">False Positive</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group mt-3">
-                                        <label>Notes:</label>
-                                        <textarea class="form-control" rows="3"></textarea>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            {% empty %}
-                <div class="col-12">
-                    <div class="alert alert-info">
-                        No saw calls detected in this audio file.
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
-        
-        <div class="mt-4">
-            <a href="{% url 'view_spectrograms' %}" class="btn btn-primary">Back to File List</a>
-        </div>
-        
     {% else %}
-        <h2>Audio Files</h2>
-        
-        <!-- Recent Processing Logs -->
-        {% if recent_logs %}
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5>Recent Processing Activity</h5>
-                </div>
-                <div class="card-body">
-                    {% for log in recent_logs %}
-                        <div class="log-entry">
-                            <span class="badge {% if log.level == 'ERROR' %}badge-danger{% elif log.level == 'WARNING' %}badge-warning{% elif log.level == 'SUCCESS' %}badge-success{% else %}badge-info{% endif %}">
-                                {{ log.level }}
-                            </span>
-                            <small class="text-muted">{{ log.timestamp|date:"Y-m-d H:i:s" }}</small>
-                            <strong>{{ log.audio_file.audio_file_name }}</strong>
-                            <p class="mb-1">{{ log.message }}</p>
-                        </div>
-                    {% endfor %}
-                </div>
-            </div>
+        <div class="alert alert-danger">
+            <p>Audio file not found.</p>
+        </div>
+        {% if request.user.user_type == '1' %}
+            <a href="{% url 'admin_home' %}" class="btn btn-primary">Back to Dashboard</a>
+        {% elif request.user.user_type == '2' %}
+            <a href="{% url 'staff_home' %}" class="btn btn-primary">Back to Dashboard</a>
         {% endif %}
-        
-        <!-- Search and Filter Form -->
-        <div class="card mb-4">
-            <div class="card-body">
-                <form method="get" class="mb-4">
-                    <div class="row">
-                        <div class="col-md-12 mb-3">
-                            <div class="input-group">
-                                <input type="text" name="search" class="form-control" placeholder="Search by file name..." value="{{ search_query }}">
-                                <div class="input-group-append">
-                                    <button type="submit" class="btn btn-primary">Search</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label for="status">Processing Status:</label>
-                                <select name="status" id="status" class="form-control">
-                                    <option value="">All</option>
-                                    <option value="Processed" {% if status_filter == 'Processed' %}selected{% endif %}>Processed</option>
-                                    <option value="Processing" {% if status_filter == 'Processing' %}selected{% endif %}>Processing</option>
-                                    <option value="Failed" {% if status_filter == 'Failed' %}selected{% endif %}>Failed</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label for="animal_type">Animal Type:</label>
-                                <select name="animal_type" id="animal_type" class="form-control">
-                                    <option value="">All</option>
-                                    <option value="amur_leopard" {% if animal_type_filter == 'amur_leopard' %}selected{% endif %}>Amur Leopard</option>
-                                    <option value="amur_tiger" {% if animal_type_filter == 'amur_tiger' %}selected{% endif %}>Amur Tiger</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-group" style="margin-top: 32px;">
-                                <button type="submit" class="btn btn-primary">Apply Filters</button>
-                                <a href="{% url 'view_spectrograms' %}" class="btn btn-secondary">Clear</a>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-        
-        <!-- File List -->
-        <div class="list-group">
-            {% for file in audio_files %}
-                <a href="{% url 'view_spectrograms' file.file_id %}" class="list-group-item list-group-item-action">
-                    <div class="d-flex w-100 justify-content-between">
-                        <h5 class="mb-1">{{ file.audio_file_name }}</h5>
-                        <small>{{ file.upload_date|date:"Y-m-d H:i" }}</small>
-                    </div>
-                    <p class="mb-1">
-                        <span class="badge {% if file.database_entry.first.status == 'Processed' %}badge-success{% elif file.database_entry.first.status == 'Failed' %}badge-danger{% else %}badge-info{% endif %}">
-                            {{ file.database_entry.first.status }}
-                        </span>
-                        {{ file.get_animal_type_display }}
-                    </p>
-                    <small>
-                        File Size: {{ file.file_size_mb|floatformat:2 }} MB |
-                        Detected Calls: {{ file.detected_noises.count }}
-                    </small>
-                </a>
-            {% empty %}
-                <div class="alert alert-info">
-                    No audio files found matching your search criteria.
-                </div>
-            {% endfor %}
-        </div>
     {% endif %}
 </div>
 
 <!-- Audio Player Modal -->
-<div class="modal fade" id="audioPlayerModal" tabindex="-1" role="dialog">
-    <div class="modal-dialog" role="document">
+<div class="modal fade" id="audioPlayerModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Audio Player</h5>
-                <button type="button" class="close" data-dismiss="modal">
-                    <span>&times;</span>
-                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <audio id="audioPlayer" controls class="w-100">
-                    Your browser does not support the audio element.
-                </audio>
+            <div class="modal-body text-center">
+                <audio id="audioPlayer" controls style="width: 100%;"></audio>
             </div>
         </div>
     </div>
 </div>
 
-{% block extra_js %}
+<!-- Spectrogram Modal -->
+<div class="modal fade" id="spectrogramModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Spectrogram Detail</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalSpectrogramImg" src="" class="img-fluid" alt="Spectrogram">
+                <div class="mt-3">
+                    <p id="modalSpectrogramTime" class="mb-0"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .spectrogram-img {
+        height: 180px;
+        object-fit: cover;
+        cursor: pointer;
+        transition: transform 0.3s ease;
+    }
+    
+    .spectrogram-img:hover {
+        transform: scale(1.05);
+    }
+</style>
+
 <script>
-function playAudio(audioPath) {
-    const player = document.getElementById('audioPlayer');
-    player.src = '/media/' + audioPath;
-    player.load();
-    $('#audioPlayerModal').modal('show');
-    player.play();
-}
-
-// Handle verification status changes
-document.querySelectorAll('.verification-status').forEach(select => {
-    select.addEventListener('change', function() {
-        const clipId = this.dataset.clipId;
-        const status = this.value;
-        // Here you can add AJAX call to update verification status
-        console.log(`Clip ${clipId} status changed to ${status}`);
+    // Function to play audio
+    function playAudio(audioPath) {
+        const audioPlayer = document.getElementById('audioPlayer');
+        audioPlayer.src = audioPath;
+        const modal = new bootstrap.Modal(document.getElementById('audioPlayerModal'));
+        modal.show();
+        audioPlayer.play();
+    }
+    
+    // Function to show spectrogram modal
+    function showSpectrogramModal(imageSrc, startTime, endTime) {
+        const modalImg = document.getElementById('modalSpectrogramImg');
+        const modalTime = document.getElementById('modalSpectrogramTime');
+        
+        modalImg.src = imageSrc;
+        modalTime.textContent = `Time Range: ${startTime} - ${endTime}`;
+        
+        const modal = new bootstrap.Modal(document.getElementById('spectrogramModal'));
+        modal.show();
+    }
+    
+    // Functions to switch between gallery and list views
+    function switchToGalleryView() {
+        document.getElementById('galleryView').classList.remove('d-none');
+        document.getElementById('listView').classList.add('d-none');
+        document.getElementById('galleryViewBtn').classList.add('active');
+        document.getElementById('listViewBtn').classList.remove('active');
+    }
+    
+    function switchToListView() {
+        document.getElementById('galleryView').classList.add('d-none');
+        document.getElementById('listView').classList.remove('d-none');
+        document.getElementById('galleryViewBtn').classList.remove('active');
+        document.getElementById('listViewBtn').classList.add('active');
+    }
+    
+    // Initialize view
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('galleryViewBtn').classList.add('active');
     });
-});
-
-// Auto-refresh logs for files being processed
-if (document.querySelector('.alert-info')) {
-    setInterval(function() {
-        location.reload();
-    }, 10000); // Refresh every 10 seconds if file is being processed
-}
 </script>
-{% endblock %}
 {% endblock %}

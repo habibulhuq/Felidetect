@@ -1,158 +1,317 @@
 {% extends 'base.html' %}
 
-{% block title %}Upload Audio{% endblock %}
+{% block title %}Upload Audio Files{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <!-- Upload Form Column -->
-        <div class="col-md-6">
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
             <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">
-                        <i class="fas fa-upload me-2"></i>Upload Audio File
-                    </h5>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">Upload Audio Files</h3>
                 </div>
                 <div class="card-body">
-                    <form method="POST" enctype="multipart/form-data">
-                        {% csrf_token %}
-                        
-                        {% if messages %}
-                        <div class="alert alert-info">
-                            {% for message in messages %}
-                                {{ message }}
-                            {% endfor %}
-                        </div>
-                        {% endif %}
-                        
-                        {% for field in form %}
-                        <div class="mb-3">
-                            <label for="{{ field.id_for_label }}" class="form-label">
-                                {{ field.label }}
-                            </label>
-                            <div class="input-group">
-                                {{ field }}
-                            </div>
-                            {% if field.help_text %}
-                            <div class="form-text text-muted">
-                                {{ field.help_text }}
-                            </div>
-                            {% endif %}
-                            {% if field.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ field.errors }}
-                            </div>
-                            {% endif %}
-                        </div>
+                    {% if messages %}
+                    <div class="alert alert-info">
+                        {% for message in messages %}
+                        {{ message }}<br>
                         {% endfor %}
-                        
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-upload me-2"></i>Upload
-                            </button>
-                            <a href="{% url 'admin_home' %}" class="btn btn-secondary">
-                                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-                            </a>
-                        </div>
-                    </form>
-                </div>
-            </div>
-            
-            <!-- Processing Status -->
-            <div class="card mt-4">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">
-                        <i class="fas fa-info-circle me-2"></i>Processing Information
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <p class="mb-0">
-                        After uploading, your audio file will be automatically processed to:
-                    </p>
-                    <ul class="mt-2">
-                        <li>Generate spectrograms for visualization</li>
-                        <li>Detect and classify saw calls</li>
-                        <li>Create analysis reports</li>
-                    </ul>
-                    <p class="text-muted mb-0">
-                        <i class="fas fa-clock me-2"></i>Processing time may vary depending on file size
-                    </p>
-                </div>
-            </div>
-        </div>
-        
-        <!-- File List Column -->
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">
-                        <i class="fas fa-file-audio me-2"></i>Uploaded Audio Files
-                    </h5>
-                </div>
-                <div class="card-body">
-                    {% if audio_files %}
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>File Name</th>
-                                    <th>Upload Date</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for file in audio_files %}
-                                <tr>
-                                    <td>
-                                        <i class="fas fa-file-audio text-primary me-2"></i>
-                                        {{ file.audio_file_name }}
-                                    </td>
-                                    <td>{{ file.upload_date|date:"M d, Y H:i" }}</td>
-                                    <td>
-                                        {% if file.database_entry.first %}
-                                            {% with status=file.database_entry.first.status %}
-                                                {% if status == 'Processing' %}
-                                                    <span class="badge bg-warning">Processing</span>
-                                                {% elif status == 'Processed' %}
-                                                    <span class="badge bg-success">Processed</span>
-                                                {% elif status == 'Failed' %}
-                                                    <span class="badge bg-danger">Failed</span>
-                                                {% else %}
-                                                    <span class="badge bg-secondary">{{ status }}</span>
-                                                {% endif %}
-                                            {% endwith %}
-                                        {% else %}
-                                            <span class="badge bg-secondary">Pending</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% with status=file.database_entry.first.status %}
-                                        {% if status == 'Processed' %}
-                                        <a href="{% url 'view_spectrograms' file.file_id %}" class="btn btn-sm btn-primary" title="View Spectrograms">
-                                            <i class="fas fa-wave-square me-1"></i> View Analysis
-                                        </a>
-                                        {% else %}
-                                        <button class="btn btn-sm btn-secondary" disabled title="Processing">
-                                            <i class="fas fa-spinner fa-spin"></i>
-                                        </button>
-                                        {% endif %}
-                                        {% endwith %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="text-center text-muted">
-                        <i class="fas fa-folder-open fa-3x mb-3"></i>
-                        <p>No audio files uploaded yet.</p>
                     </div>
                     {% endif %}
+
+                    <form method="post" enctype="multipart/form-data" id="uploadForm">
+                        {% csrf_token %}
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="id_animal_type" class="form-label">{{ form.animal_type.label }}</label>
+                                    {{ form.animal_type|safe }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="id_zoo" class="form-label">{{ form.zoo.label }}</label>
+                                    {{ form.zoo|safe }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group mb-4">
+                            <label class="form-label">Upload Method</label>
+                            <div class="d-flex gap-4">
+                                <div class="form-check">
+                                    <input type="radio" id="fileUpload" name="uploadMethod" class="form-check-input" checked>
+                                    <label class="form-check-label" for="fileUpload">Select Files</label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="radio" id="folderUpload" name="uploadMethod" class="form-check-input">
+                                    <label class="form-check-label" for="folderUpload">Select Folder</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-4" id="fileUploadDiv">
+                            <label for="id_audio_files" class="form-label">{{ form.audio_files.label }}</label>
+                            <div class="upload-area" id="dropZone">
+                                <i class="fas fa-cloud-upload-alt fa-3x mb-3 text-muted"></i>
+                                <p class="mb-2">Drag and drop audio files here</p>
+                                <p class="text-muted small mb-3">or</p>
+                                <label for="id_audio_files" class="btn btn-outline-primary">
+                                    Browse Files
+                                </label>
+                                <input type="file" class="d-none" id="id_audio_files" name="audio_files" accept=".wav" multiple>
+                                <p class="text-muted small mt-2">{{ form.audio_files.help_text }}</p>
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-4" id="folderUploadDiv" style="display: none;">
+                            <label for="id_folder" class="form-label">Select Folder</label>
+                            <div class="upload-area" id="folderDropZone">
+                                <i class="fas fa-folder-open fa-3x mb-3 text-muted"></i>
+                                <p class="mb-2">Select a folder containing .wav files</p>
+                                <p class="text-muted small mb-3">or</p>
+                                <label for="id_folder" class="btn btn-outline-primary">
+                                    Browse Folder
+                                </label>
+                                <input type="file" class="d-none" id="id_folder" webkitdirectory directory multiple>
+                                <p class="text-muted small mt-2">All .wav files in the selected folder will be uploaded</p>
+                            </div>
+                            <input type="hidden" name="folder_upload" id="id_folder_upload" value="false">
+                        </div>
+
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <i class="fas fa-upload me-2"></i>Upload
+                            </button>
+                        </div>
+                    </form>
+
+                    <div id="uploadProgress" style="display: none;" class="mt-4">
+                        <h4 class="mb-3">Upload Progress</h4>
+                        <div class="progress mb-3">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%" id="progressBar"></div>
+                        </div>
+                        <div id="uploadStatus" class="mb-3"></div>
+                        <div id="fileList" class="mt-3">
+                            <h5 class="mb-2">Files to Upload:</h5>
+                            <ul class="list-group" id="filesToUpload"></ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const fileUploadRadio = document.getElementById('fileUpload');
+        const folderUploadRadio = document.getElementById('folderUpload');
+        const fileUploadDiv = document.getElementById('fileUploadDiv');
+        const folderUploadDiv = document.getElementById('folderUploadDiv');
+        const folderUploadInput = document.getElementById('id_folder_upload');
+        const uploadForm = document.getElementById('uploadForm');
+        const progressBar = document.getElementById('progressBar');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const filesToUpload = document.getElementById('filesToUpload');
+        const dropZone = document.getElementById('dropZone');
+        const folderDropZone = document.getElementById('folderDropZone');
+        const fileInput = document.getElementById('id_audio_files');
+        const folderInput = document.getElementById('id_folder');
+        
+        // Toggle between file and folder upload
+        fileUploadRadio.addEventListener('change', function() {
+            if (this.checked) {
+                fileUploadDiv.style.display = 'block';
+                folderUploadDiv.style.display = 'none';
+                folderUploadInput.value = 'false';
+            }
+        });
+        
+        folderUploadRadio.addEventListener('change', function() {
+            if (this.checked) {
+                fileUploadDiv.style.display = 'none';
+                folderUploadDiv.style.display = 'block';
+                folderUploadInput.value = 'true';
+            }
+        });
+        
+        // Drag and drop for files
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+            folderDropZone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+            folderDropZone.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+            folderDropZone.addEventListener(eventName, unhighlight, false);
+        });
+        
+        dropZone.addEventListener('drop', handleFileDrop, false);
+        folderDropZone.addEventListener('drop', handleFolderDrop, false);
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        function highlight(e) {
+            this.classList.add('border-primary');
+        }
+        
+        function unhighlight(e) {
+            this.classList.remove('border-primary');
+        }
+        
+        function handleFileDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            fileInput.files = files;
+            updateFileList(files);
+        }
+        
+        function handleFolderDrop(e) {
+            // This won't work directly for folders due to security restrictions
+            // Just highlight that they need to use the browse button
+            alert('Please use the Browse Folder button to select a folder');
+        }
+        
+        // Update file list when files are selected
+        fileInput.addEventListener('change', function() {
+            updateFileList(this.files);
+        });
+        
+        folderInput.addEventListener('change', function() {
+            updateFileList(this.files);
+        });
+        
+        // Function to update the file list display
+        function updateFileList(files) {
+            if (files.length > 0) {
+                uploadProgress.style.display = 'block';
+                filesToUpload.innerHTML = '';
+                
+                let totalSize = 0;
+                let validFiles = 0;
+                
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    if (file.name.toLowerCase().endsWith('.wav')) {
+                        validFiles++;
+                        totalSize += file.size;
+                        
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                        li.innerHTML = `
+                            <div>
+                                <i class="fas fa-file-audio me-2 text-primary"></i>
+                                ${file.name}
+                            </div>
+                            <span class="badge bg-secondary">${formatFileSize(file.size)}</span>
+                        `;
+                        filesToUpload.appendChild(li);
+                    }
+                }
+                
+                uploadStatus.innerHTML = `<div class="alert alert-info">${validFiles} valid .wav files selected (${formatFileSize(totalSize)})</div>`;
+            } else {
+                uploadProgress.style.display = 'none';
+            }
+        }
+        
+        // Format file size
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // Handle form submission
+        uploadForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            let files;
+            
+            if (fileUploadRadio.checked) {
+                files = fileInput.files;
+            } else {
+                files = folderInput.files;
+            }
+            
+            // Validate files
+            let validFiles = 0;
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].name.toLowerCase().endsWith('.wav')) {
+                    validFiles++;
+                }
+            }
+            
+            if (validFiles === 0) {
+                alert('Please select at least one .wav file to upload');
+                return;
+            }
+            
+            // Update UI
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Uploading...';
+            progressBar.style.width = '0%';
+            uploadStatus.innerHTML = '<div class="alert alert-info">Preparing to upload...</div>';
+            
+            // Send AJAX request
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', window.location.href);
+            
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    progressBar.style.width = percentComplete + '%';
+                    uploadStatus.innerHTML = `<div class="alert alert-info">Uploading: ${Math.round(percentComplete)}%</div>`;
+                }
+            };
+            
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        if (response.success) {
+                            uploadStatus.innerHTML = `<div class="alert alert-success">${response.message}</div>`;
+                            setTimeout(() => {
+                                window.location.href = response.redirect_url;
+                            }, 2000);
+                        } else {
+                            uploadStatus.innerHTML = `<div class="alert alert-danger">Error: ${response.message}</div>`;
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = '<i class="fas fa-upload me-2"></i>Upload';
+                        }
+                    } catch (e) {
+                        // If not JSON, it's probably the full HTML page (form validation error)
+                        window.location.reload();
+                    }
+                } else {
+                    uploadStatus.innerHTML = `<div class="alert alert-danger">Upload failed with status: ${xhr.status}</div>`;
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-upload me-2"></i>Upload';
+                }
+            };
+            
+            xhr.onerror = function() {
+                uploadStatus.innerHTML = '<div class="alert alert-danger">Upload failed. Please try again.</div>';
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-upload me-2"></i>Upload';
+            };
+            
+            xhr.send(formData);
+        });
+    });
+</script>
 {% endblock %}

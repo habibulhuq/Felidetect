@@ -17,7 +17,28 @@ class UserRegistrationForm(UserCreationForm):
             user.save()
         return user
 
-class AudioUploadForm(forms.ModelForm):
-    class Meta:
-        model = OriginalAudioFile
-        fields = ['audio_file', 'animal_type', 'zoo']
+class AudioUploadForm(forms.Form):
+    # Use a regular FileField without the multiple attribute
+    # The multiple file handling will be done in the view
+    audio_files = forms.FileField(
+        widget=forms.FileInput(attrs={'accept': '.wav'}),
+        required=False,
+        label="Select Audio Files",
+        help_text="Select audio files to upload (.wav format only)"
+    )
+    folder_upload = forms.BooleanField(
+        required=False,
+        label="Upload Folder",
+        help_text="Check this to upload an entire folder of audio files"
+    )
+    animal_type = forms.ChoiceField(
+        choices=OriginalAudioFile.ANIMAL_CHOICES,
+        required=True,
+        label="Animal Type"
+    )
+    zoo = forms.ModelChoiceField(
+        queryset=OriginalAudioFile._meta.get_field('zoo').remote_field.model.objects.all(),
+        required=False,
+        label="Zoo",
+        empty_label="Select Zoo (Optional)"
+    )
