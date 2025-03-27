@@ -18,6 +18,7 @@ urlpatterns = [
     path('manage_staff/', adminViews.manage_staff, name="manage_staff"),
     path('view_spectrograms/', views.view_spectrograms_list, name="view_spectrograms_list"),
     path('view_spectrograms/<int:file_id>/', views.view_spectrograms, name="view_spectrograms"),
+    path('view_timelines/', views.view_timelines, name='view_timelines'),
     path('view_analysis/<int:file_id>/', views.view_analysis, name="view_analysis"),
     path('download_excel/<int:file_id>/', views.download_excel, name="download_excel"),
     

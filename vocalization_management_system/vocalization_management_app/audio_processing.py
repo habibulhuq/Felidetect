@@ -3,6 +3,9 @@ import numpy as np
 import librosa
 from scipy.signal import stft
 from scipy.io import wavfile as wav
+from django.conf import settings
+import pandas as pd
+import re
 from django.utils.timezone import now
 from .models import ProcessedAudioFile, DetectedNoiseAudioFile, Database, ProcessingLog, OriginalAudioFile
 from datetime import datetime, timedelta
@@ -88,6 +91,7 @@ def update_audio_metadata(file_path, original_audio):
             level="INFO"
         )
         
+        saw_call_segments = find_events_within_threshold(y, sr)
         # Get the filename from the path
         filename = os.path.basename(file_path)
         
@@ -207,16 +211,52 @@ def detect_saw_calls(audio_data, sample_rate):
     # Remove DC offset by subtracting the mean
     audio_data -= np.mean(audio_data)
     
+    def find_events_within_threshold(file_path, dataset, callset, min_mag=3500, max_mag=10000, min_freq=15, max_freq=300, segment_duration=.1, time_threshold=5):
+    """
+    Reads a WAV audio file, computes its STFT to find major magnitude events over time,
+    and stores events that exceed a magnitude threshold.
+
+    Parameters:
+    - file_path (str): Path to the WAV file.
+    - dataset (list): List of lists to store impulses ([file_path, start, end, magnitude, frequency, count]).
+    - callset (list): List of lists to store calls ([file_path, start, end, magnitude, frequency, count]).
+    - min_mag (float): The magnitude minimum for event detection (default is 3500).
+    - max_mag (float): The magnitude maximum for event detection (default is 10000).
+    - min_freq (float): The minimum frequency for event detection (default is 15hz).
+    - max_freq (float): The maximum frequency for event detection (default is 300hz).
+    - segment_duration (float): Duration of each STFT segment in seconds (default is 0.1s).
+    - time_threshold (float): Time threshold in seconds for merging events (default is 5s).
+
+    Returns:
+    - None
+    """
+    try:
+        sample_rate, audio_data = wav.read(file_path)
+    except Exception as e:
+        print(f"Error: {file_path} is not an audio file or doesn't exist. ({e})")
+        return
+
+    # If stereo, take just one channel
+    if len(audio_data.shape) == 2:
+        audio_data = audio_data[:, 0]
+
+    # Convert audio data to np.float32 for efficiency
+    audio_data = audio_data.astype(np.float32)
+    # Remove DC offset by subtracting the mean
+    audio_data -= np.mean(audio_data)
+    
+
     # Compute the STFT with a specified segment duration
     nperseg = int(segment_duration * sample_rate)
     frequencies, times, Zxx = stft(audio_data, fs=sample_rate, nperseg=nperseg)
     magnitude = np.abs(Zxx)  # Magnitude of the STFT result
-    
+
+
     # Initialize variables for event detection
     last_event_time_seconds = None
     event_data = []
-    
-    # Iterate over each time frame
+    # Iterate over each time frame, using np.where to find indices where magnitude exceeds threshold
+
     for time_idx in range(magnitude.shape[1]):
         # Filter for magnitudes above the threshold
         magnitudes_at_time = magnitude[:, time_idx]
@@ -287,6 +327,7 @@ def detect_saw_calls(audio_data, sample_rate):
     filtered_events = [event for event in event_data if event['impulse_count'] >= 3]
     
     return filtered_events
+
 
 def generate_excel_report(original_audio, saw_calls):
     """
@@ -635,6 +676,39 @@ def process_audio(file_path, original_audio):
             db_entry.save()
         
         return False
+
+def create_calls_timeline(df):
+    """
+    Creates a timeline of detected call events from the DataFrame produced by find_events_within_threshold.
+
+    Parameters:
+    - df (pd.DataFrame): DataFrame containing columns ['File', 'Start', 'End', 'Magnitude', 'Frequency', 'Count']
+
+    Returns:
+    - calls_per_day (pd.DataFrame): Aggregated number of calls per day
+    """
+    # Ensure required columns exist
+    if 'File' not in df.columns or 'Start' not in df.columns or 'Count' not in df.columns:
+        raise ValueError("DataFrame must contain 'File', 'Start', and 'Count' columns.")
+
+    # Extract date from Start timestamp
+    df['date'] = pd.to_datetime(df['Start']).dt.date
+
+    # Aggregate calls per day
+    calls_per_day = df.groupby('date')['Count'].sum().reset_index()
+
+    # Plot the timeline
+    plt.figure(figsize=(10, 5))
+    plt.plot(calls_per_day['date'], calls_per_day['Count'], marker='o', linestyle='-')
+    plt.xlabel('Date')
+    plt.ylabel('Number of Calls')
+    plt.title('Calls Per Day Timeline')
+    plt.xticks(rotation=45)
+    plt.grid()
+    plt.show()
+
+    return calls_per_day
+
 
 def get_pending_audio_files():
     """

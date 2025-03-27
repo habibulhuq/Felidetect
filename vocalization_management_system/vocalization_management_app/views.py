@@ -5,6 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseForbidden
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.decorators import login_required
+from django.db import connection
 from django.contrib.auth.forms import PasswordChangeForm
 from django.utils import timezone
 import os
@@ -372,7 +374,6 @@ def view_analysis(request, file_id):
             # Read the Excel file into a pandas DataFrame
             excel_file = audio_file.analysis_excel.read()
             df = pd.read_excel(io.BytesIO(excel_file))
-            
             # Convert DataFrame to HTML table
             excel_data = df.to_html(classes='table table-striped', index=False)
         except Exception as e:
@@ -391,6 +392,19 @@ def view_analysis(request, file_id):
     }
     
     return render(request, 'common/view_analysis.html', context)
+    
+def view_timelines(request):
+    if request.method == 'POST':
+        animal_habitat = request.POST['animal_habitat']
+        start_date = request.POST['start_date']
+        end_date = request.POST['end_date']
+        # TODO: implement timeline generation logic here
+        timeline = ''  # placeholder for timeline generation
+        return render(request, 'common/view_timelines.html', {'timeline': timeline})
+    else:
+        animal_habitats = []  # empty list for now
+        return render(request, 'common/view_timelines.html', {'animal_habitats': animal_habitats})
+
 
 def download_excel(request, file_id):
     """
