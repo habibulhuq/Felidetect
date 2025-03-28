@@ -95,7 +95,7 @@ class OriginalAudioFile(models.Model):
     upload_date = models.DateTimeField(default=now)
     uploaded_by = models.ForeignKey(AdminProfile, on_delete=models.CASCADE, related_name="uploaded_audio", blank=True, null=True)
     analysis_excel = models.FileField(upload_to='analysis_excel/', null=True, blank=True)
-    duration_seconds = models.FloatField(blank=True, null=True)
+    duration_seconds = models.FloatField(blank=True, null=True, default=0.0)
     duration = models.CharField(max_length=20, blank=True, null=True)
     sample_rate = models.IntegerField(blank=True, null=True)
     
