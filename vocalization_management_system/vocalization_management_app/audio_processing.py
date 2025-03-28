@@ -13,6 +13,7 @@ import logging
 import pandas as pd
 from django.core.files.base import ContentFile
 import io
+import matplotlib as plt
 
 def ensure_directory_exists(directory):
     """Ensure that a directory exists, create if it doesn't"""
@@ -91,7 +92,7 @@ def update_audio_metadata(file_path, original_audio):
             level="INFO"
         )
         
-        saw_call_segments = find_events_within_threshold(y, sr)
+        #saw_call_segments = find_events_within_threshold(y, sr)
         # Get the filename from the path
         filename = os.path.basename(file_path)
         
@@ -211,7 +212,8 @@ def detect_saw_calls(audio_data, sample_rate):
     # Remove DC offset by subtracting the mean
     audio_data -= np.mean(audio_data)
     
-    def find_events_within_threshold(file_path, dataset, callset, min_mag=3500, max_mag=10000, min_freq=15, max_freq=300, segment_duration=.1, time_threshold=5):
+def find_events_within_threshold(file_path, dataset, callset, min_mag=3500, max_mag=10000, min_freq=15, max_freq=300, segment_duration=.1, time_threshold=5):
+    
     """
     Reads a WAV audio file, computes its STFT to find major magnitude events over time,
     and stores events that exceed a magnitude threshold.
